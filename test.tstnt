@@ -1,0 +1,129 @@
+use sys
+use rand
+use fmt
+use log
+use uuid
+use term
+use bench
+use csv
+use hash
+use game
+use input
+
+struct Person {
+    name: str
+    age: int
+}
+
+impl Person {
+    do greet -> str {
+        return "Hi, I am " + self.name
+    }
+    do is_adult -> bool {
+        return self.age >= 18
+    }
+}
+
+do classify(n: int) -> str {
+    match n {
+        0 -> return "zero"
+        _ -> return "other"
+    }
+    return "?"
+}
+
+do factorial(n: int) -> int {
+    if n <= 1 { return 1 }
+    return n * factorial(n - 1)
+}
+
+do max_val<T>(a: T, b: T) -> T {
+    return a > b ? a : b
+}
+
+do apply_fn(f: any, x: int) -> int {
+    return apply(f, x)
+}
+
+do main {
+    print(sys.os())
+
+    let p = Person { name: "Alex", age: 25 }
+    print(p.greet())
+    print(p.is_adult())
+
+    let nums = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    let doubled = map(nums, |x| x * 2)
+    let evens = filter(doubled, |x| x % 4 == 0)
+    let total = reduce(evens, |acc x| acc + x, 0)
+    print(doubled)
+    print(evens)
+    print(total)
+
+    print(classify(0))
+    print(classify(5))
+    print(factorial(10))
+
+    # loop enumerate
+    let fruits = ["apple", "banana", "cherry"]
+    loop i, fruit in fruits {
+        print(str(i) + ": " + fruit)
+    }
+
+    # repeat
+    repeat 2 { print("rep!") }
+
+    # ternary
+    let status = 20 >= 18 ? "adult" : "minor"
+    print(status)
+
+    # spread
+    let a = [1, 2, 3]
+    let b = [0, ...a, 4]
+    print(b)
+
+    # += 
+    let mut x = 10
+    x += 5
+    x -= 2
+    x *= 2
+    print(x)
+
+    print(sort([3,1,4,1,5,9]))
+    print(sum([1,2,3,4,5]))
+
+    # if как выражение
+    let val = if 5 > 3 { 100 } else { 0 }
+    print(val)
+
+    # функция как значение
+    let double = |x| x * 2
+    print(apply_fn(double, 21))
+
+    # дженерики
+    print(max_val(3, 7))
+    print(max_val("apple", "banana"))
+
+    # game module
+    game.set("score", 0)
+    game.set("score", 100)
+    print(game.get("score"))
+    game.inv_add("sword")
+    game.inv_add("potion")
+    print(game.inv_list())
+    print(game.inv_has("sword"))
+    print(game.roll(20))
+    print(game.clamp(150, 0, 100))
+
+    # mutex
+    thread.mutex_new("counter", 0)
+    thread.mutex_set("counter", 42)
+    print("mutex: " + str(thread.mutex_get("counter")))
+
+    # misc
+    log.info("test")
+    print(term.green("OK"))
+    print(hash.fnv32("hello"))
+    assert_eq(1 + 1, 2)
+    print("all ok")
+}

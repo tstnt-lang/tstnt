@@ -1,0 +1,6 @@
+use "./test_import_utils.tstnt"
+
+do main {
+    print(greet("World"))
+    print(add(3, 4))
+}

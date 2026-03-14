@@ -1,0 +1,9 @@
+do red(s: str) -> str { return term.red(s) }
+do green(s: str) -> str { return term.green(s) }
+do yellow(s: str) -> str { return term.yellow(s) }
+do blue(s: str) -> str { return term.blue(s) }
+do magenta(s: str) -> str { return term.yellow(s) }
+do cyan(s: str) -> str { return term.blue(s) }
+do bold(s: str) -> str { return term.bold(s) }
+do dim(s: str) -> str { return term.dim(s) }
+do reset() -> str { return term.reset() }

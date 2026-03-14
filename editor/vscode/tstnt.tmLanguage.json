@@ -1,0 +1,55 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "TSTNT",
+  "scopeName": "source.tstnt",
+  "fileTypes": ["tstnt"],
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#keywords" },
+    { "include": "#builtins" },
+    { "include": "#numbers" },
+    { "include": "#operators" },
+    { "include": "#types" },
+    { "include": "#functions" }
+  ],
+  "repository": {
+    "comments": {
+      "name": "comment.line.tstnt",
+      "match": "#.*$"
+    },
+    "strings": {
+      "name": "string.quoted.double.tstnt",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        { "name": "constant.character.escape.tstnt", "match": "\\\\." },
+        { "name": "meta.embedded.tstnt", "begin": "\\{", "end": "\\}", "patterns": [{ "include": "$self" }] }
+      ]
+    },
+    "keywords": {
+      "name": "keyword.control.tstnt",
+      "match": "\\b(do|let|mut|return|if|else|while|loop|match|use|struct|impl|test|null|repeat|in|break|continue|try|catch|throw|async|await|thread|true|false|unit|enum|interface|chan|send|recv)\\b"
+    },
+    "builtins": {
+      "name": "support.function.builtin.tstnt",
+      "match": "\\b(print|len|str|int|float|bool|type_of|assert|assert_eq|assert_ne|panic|range|map|filter|reduce|apply|zip|flatten|sort|unique|sum|min|max|abs|is_null|input)\\b"
+    },
+    "numbers": {
+      "name": "constant.numeric.tstnt",
+      "match": "\\b[0-9]+(\\.[0-9]+)?\\b"
+    },
+    "operators": {
+      "name": "keyword.operator.tstnt",
+      "match": "(->|\\.\\.\\.|\\?\\.|==|!=|<=|>=|&&|\\|\\||\\+=|-=|\\*=|/=|[+\\-*/%<>=!?:|&])"
+    },
+    "types": {
+      "name": "entity.name.type.tstnt",
+      "match": "\\b(int|float|str|bool|void|any|char)\\b"
+    },
+    "functions": {
+      "name": "entity.name.function.tstnt",
+      "match": "\\b([a-z_][a-zA-Z0-9_]*)(?=\\()"
+    }
+  }
+}

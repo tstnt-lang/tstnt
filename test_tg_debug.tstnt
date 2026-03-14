@@ -1,0 +1,9 @@
+use tg
+
+do main {
+    tg.token("token")
+    print("ping:")
+    print(tg.ping())
+    print("raw updates:")
+    print(tg.raw_updates(0))
+}

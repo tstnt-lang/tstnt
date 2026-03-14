@@ -1,0 +1,70 @@
+use game
+use input
+use rand
+
+do show_status(name: str, hp: int, gold: int, level: int) {
+    print("\n=== " + name + " ===")
+    print("❤️  HP: " + str(hp))
+    print("💰 Gold: " + str(gold))
+    print("⭐ Level: " + str(level))
+}
+
+do fight(player_atk: int, enemy_hp: int, enemy_name: str) -> int {
+    let mut ehp = enemy_hp
+    print("\nBattle: " + enemy_name + " (HP: " + str(ehp) + ")")
+    while ehp > 0 {
+        let dmg = player_atk + rand.int(1, 10)
+        ehp -= dmg
+        print("You dealt " + str(dmg) + " dmg! Enemy HP: " + str(game.clamp(ehp, 0, enemy_hp)))
+        if ehp > 0 {
+            let edm = rand.int(3, 8)
+            let cur_hp = game.get("hp")
+            let new_hp = game.clamp(int(str(cur_hp)) - edm, 0, 100)
+            game.set("hp", new_hp)
+            print("Enemy dealt " + str(edm) + "! Your HP: " + str(new_hp))
+        }
+    }
+    return rand.int(10, 30)
+}
+
+do main {
+    print("=== TSTNT RPG ===")
+    let name = input.read("Enter your name: ")
+
+    game.set("name", name)
+    game.set("hp", 100)
+    game.set("gold", 50)
+    game.set("level", 1)
+
+    game.inv_add("Short Sword")
+    game.inv_add("Health Potion")
+
+    let mut running = true
+    while running {
+        let cur_hp = game.get("hp")
+        let cur_gold = game.get("gold")
+        let cur_lvl = game.get("level")
+        show_status(name, int(str(cur_hp)), int(str(cur_gold)), int(str(cur_lvl)))
+
+        let choice = input.menu("\nWhat do you do?", ["⚔️  Fight", "🎒 Inventory", "🏕  Rest", "🚪 Quit"])
+
+        if choice == 0 {
+            let reward = fight(10 + int(str(cur_lvl)) * 2, 30 + rand.int(0, 20), "Goblin")
+            game.set("gold", int(str(cur_gold)) + reward)
+            print("You won! +" + str(reward) + " gold")
+        } else {
+            if choice == 1 {
+                print("\n🎒 Inventory: ")
+                print(game.inv_list())
+            } else {
+                if choice == 2 {
+                    game.set("hp", 100)
+                    print("You rested. HP restored!")
+                } else {
+                    running = false
+                    print("Goodbye, " + name + "!")
+                }
+            }
+        }
+    }
+}
