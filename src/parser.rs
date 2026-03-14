@@ -41,6 +41,7 @@ pub enum Node {
     Pipe(Vec<Node>),
     In { value: Box<Node>, container: Box<Node> },
     Breakpoint,
+    Decorator { name: String, target: Box<Node> },
 }
 
 #[derive(Debug, Clone)]
@@ -69,6 +70,13 @@ impl Parser {
         Ok(nodes)
     }
     fn parse_top(&mut self) -> Result<Node, String> {
+        // Декоратор @cache, @timer, @deprecated
+        if self.cur().kind == TokenType::At {
+            self.advance();
+            let name = self.read_any_ident()?;
+            let target = self.parse_top()?;
+            return Ok(Node::Decorator { name, target: Box::new(target) });
+        }
         match self.cur().kind {
             TokenType::Use => self.parse_use(),
             TokenType::Mod => { self.advance(); Ok(Node::Mod(self.expect(TokenType::Ident)?.value)) }
@@ -417,7 +425,7 @@ impl Parser {
                 let name = self.read_any_ident()?;
                 if self.cur().kind == TokenType::LParen {
                     self.advance(); let args = self.parse_args()?; self.expect(TokenType::RParen)?;
-                    const STDLIB: &[&str] = &["io","math","str","strings","arr","json","time","env","fs","process","crypto","rand","fmt","sys","path","buf","regex","net","http","ws","db","cache","log","queue","zip","csv","xml","smtp","uuid","hash","signal","term","bench","thread","tg","game","input","db","color","os","math2","str2","net2","type","io2","arr2","json2","event","num"];
+                    const STDLIB: &[&str] = &["io","math","str","strings","arr","json","time","env","fs","process","crypto","rand","fmt","sys","path","buf","regex","net","http","ws","db","cache","log","queue","zip","csv","xml","smtp","uuid","hash","signal","term","bench","thread","tg","game","input","db","color","os","math2","str2","net2","type","io2","arr2","json2","event","num","pickle","hashmap","set","zip2","xml","html","smtp","qr","matrix2","ini","toml","color2","base","bit","dns","signal2","pack","math3"];
                     if let Node::Ident(ref module) = node {
                         if STDLIB.contains(&module.as_str()) { node = Node::FuncCall { name: format!("{}.{}", module, name), args }; }
                         else { node = Node::MethodCall { obj: Box::new(Node::Ident(module.clone())), method: name, args }; }

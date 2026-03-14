@@ -65,6 +65,47 @@ fn main() {
                 _ => eprintln!("Usage: tstnt pkg [install|uninstall|list|search]"),
             }
         }
+        Some("new") => {
+            if let Some(name) = args.get(2) {
+                let name = name.clone();
+                let dirs = [format!("{}/src", name), format!("{}/tests", name)];
+                for d in &dirs { std::fs::create_dir_all(d).ok(); }
+
+                let main_code = format!("do main {{\n    print(\"Hello from {}!\")\n}}", name);
+                fs::write(format!("{}/src/main.tstnt", name), &main_code).ok();
+
+                let test_code = "test hello {\n    assert_eq(1 + 1, 2)\n}";
+                fs::write(format!("{}/tests/test.tstnt", name), test_code).ok();
+
+                let pkg_name = name.clone();
+                let pkg_json = format!(
+                    "{{\n  \"name\": \"{}\",\n  \"version\": \"0.1.0\",\n  \"main\": \"src/main.tstnt\"\n}}",
+                    pkg_name
+                );
+                fs::write(format!("{}/pkg.json", name), &pkg_json).ok();
+
+                let gitignore = "*.tst\n.env\n*.tsdb\n";
+                fs::write(format!("{}/.gitignore", name), gitignore).ok();
+
+                let readme = format!("# {}\n\nA TSTNT project.\n\n```bash\ntstnt src/main.tstnt\n```\n", name);
+                fs::write(format!("{}/README.md", name), &readme).ok();
+
+                println!("[32m✓[0m Created project: [1m{}[0m", name);
+                println!("");
+                println!("  {}/", name);
+                println!("  ├── src/");
+                println!("  │   └── main.tstnt");
+                println!("  ├── tests/");
+                println!("  │   └── test.tstnt");
+                println!("  ├── pkg.json");
+                println!("  ├── .gitignore");
+                println!("  └── README.md");
+                println!("");
+                println!("  [90mcd {} && tstnt src/main.tstnt[0m", name);
+            } else {
+                eprintln!("Usage: tstnt new <project-name>");
+            }
+        }
         Some("watch") => {
             if let Some(f) = args.get(2) {
                 let f = f.clone();
@@ -109,7 +150,7 @@ fn main() {
             println!(r"   | |  \__ \  | |  | .` | | |  ");
             println!(r"   |_|  |___/  |_|  |_|\_| |_|  ");
             println!("[0m");
-            println!("  v0.8.0  [90m— The TSTNT Language[0m");
+            println!("  v0.9.0  [90m— The TSTNT Language[0m");
             println!("  [90mgithub.com/tstnt-lang[0m
 ");
         }

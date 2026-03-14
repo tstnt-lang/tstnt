@@ -9,7 +9,7 @@ struct Player {
 }
 
 do main {
-    tg.token("8243206214:AAF0J8gtiRDLoKBbSK7wDKLTtMMbt5dJJTw")
+    tg.token("token")
     tg.delete_webhook()
     print("Bot started")
 

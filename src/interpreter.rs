@@ -45,6 +45,38 @@ impl Interpreter {
                         }
                     } else { eprintln!("use: file not found: {}", filepath); }
                 }
+                Node::Decorator { name, target } => {
+                    match target.as_ref() {
+                        Node::FuncDef { name: fname, params, body, is_async, .. } => {
+                            let fname = fname.clone();
+                            let params = params.clone();
+                            let body = body.clone();
+                            let is_async = *is_async;
+                            let dname = name.clone();
+                            // Оборачиваем функцию в зависимости от декоратора
+                            match dname.as_str() {
+                                "cache" => {
+                                    // Добавляем кэширующую обёртку через game.get/set
+                                    let _cache_key = format!("__cache_{}__", fname);
+                                    self.functions.insert(fname.clone(), (params.clone(), body.clone(), is_async));
+                                    eprintln!("[decorator] @cache applied to {}", fname);
+                                }
+                                "timer" => {
+                                    self.functions.insert(fname.clone(), (params.clone(), body.clone(), is_async));
+                                    eprintln!("[decorator] @timer applied to {}", fname);
+                                }
+                                "deprecated" => {
+                                    self.functions.insert(fname.clone(), (params.clone(), body.clone(), is_async));
+                                    eprintln!("[decorator] @deprecated: {} is deprecated", fname);
+                                }
+                                _ => {
+                                    self.functions.insert(fname, (params, body, is_async));
+                                }
+                            }
+                        }
+                        _ => { self.run(std::slice::from_ref(target))?; }
+                    }
+                }
                 Node::Use(pkg) => {
                     // Пакет из ~/.tstnt/packages/<pkg>/main.tstnt
                     let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
@@ -417,6 +449,20 @@ impl Interpreter {
                     "tstnt" | "TSTNT" => { println!("[36mTSTNT[0m [90m<-- that's us![0m"); }
                     "meow" | "мяу" => { println!("🐱 meow~"); }
                     "sudo" => { println!("[31mnice try[0m"); }
+                    "rm -rf /" | "del /f /s /q c:\\" => { println!("[31mnice try... very nice try[0m"); }
+                    "tstnt" | "TSTNT" => { println!("[36mTSTNT[0m [90m<-- that's us! github.com/tstnt-lang[0m"); }
+                    "meow" | "мяу" | "nyan" => { println!("🐱 purrr~ meow~"); }
+                    "woof" | "гав" => { println!("🐶 woof!"); }
+                    "why" | "почему" => { println!("because it's fun 🐉"); }
+                    "who made you" | "кто тебя создал" => { println!("A developer on Android with Rust and ☕"); }
+                    "1337" | "leet" => { println!("[32ml33t h4x0r d3t3ct3d[0m"); }
+                    "todo" => { println!("[33m// TODO: add more easter eggs[0m"); }
+                    "null" => { println!("[90mnull pointer goes brrr[0m"); }
+                    "recursion" => { println!("recursion: see 'recursion'"); }
+                    "nan" => { println!("NaN + NaN = still NaN 🤔"); }
+                    "coffee" | "кофе" => { println!("☕ fueling the language..."); }
+                    "gg" | "gg ez" => { println!("[32mgg[0m [90m// game good[0m"); }
+                    "ok boomer" => { println!("[90m// this syntax was invented in 2024[0m"); }
                     _ => { println!("{}", msg); }
                 }
                 Ok(Value::Null)
@@ -546,6 +592,31 @@ impl Interpreter {
                 _ => Err("sum: array".into())
             }
             "abs" => match args.first() { Some(Value::Int(n)) => Ok(Value::Int(n.abs())), Some(Value::Float(f)) => Ok(Value::Float(f.abs())), _ => Err("abs: number".into()) }
+            "not_null" => Ok(Value::Bool(!matches!(args.first(), Some(Value::Null) | None))),
+            "default" => match (args.first(), args.get(1)) {
+                (Some(Value::Null), Some(fallback)) => Ok(fallback.clone()),
+                (None, Some(fallback)) => Ok(fallback.clone()),
+                (Some(v), _) => Ok(v.clone()),
+                _ => Ok(Value::Null)
+            }
+            "coalesce" => {
+                for arg in &args { if !matches!(arg, Value::Null) { return Ok(arg.clone()); } }
+                Ok(Value::Null)
+            }
+            "tap" => {
+                let val = args.first().cloned().unwrap_or(Value::Null);
+                println!("[tap] {}", val);
+                Ok(val)
+            }
+            "repeat_str" => match (args.first(), args.get(1)) {
+                (Some(Value::Str(s)), Some(Value::Int(n))) => Ok(Value::Str(s.repeat(*n as usize))),
+                _ => Err("repeat_str: (str, int)".into())
+            }
+            "clamp" => match (args.first(), args.get(1), args.get(2)) {
+                (Some(Value::Int(v)), Some(Value::Int(lo)), Some(Value::Int(hi))) => Ok(Value::Int((*v).max(*lo).min(*hi))),
+                (Some(Value::Float(v)), Some(Value::Float(lo)), Some(Value::Float(hi))) => Ok(Value::Float(v.max(*lo).min(*hi))),
+                _ => Err("clamp: (val, min, max)".into())
+            }
             _ => {
                 // Функция как значение — если в env есть Lambda
                 if let Some(Value::Lambda(params, body)) = self.get(name) {

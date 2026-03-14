@@ -8,7 +8,7 @@ pub enum TokenType {
     Null, Repeat,
     Plus, Minus, Star, Slash, Percent, Bang,
     Eq, EqEq, Neq, Lt, Gt, LtEq, GtEq, Amp, AndAnd, OrOr, Pipe,
-    Question, QuestionDot, Colon2,
+    Question, QuestionDot, Colon2, At,
     PlusEq, MinusEq, StarEq, SlashEq,
     DotDotDot,
     LParen, RParen, LBrace, RBrace, LBracket, RBracket,
@@ -98,6 +98,7 @@ impl Lexer {
             if c == '/' && self.peek() == Some('=') { self.advance(); self.advance(); tokens.push(Token { kind: TokenType::SlashEq, value: "/=".into(), line }); continue; }
             if c == '=' { self.advance(); if self.cur() == Some('=') { self.advance(); tokens.push(Token { kind: TokenType::EqEq, value: "==".into(), line }); } else { tokens.push(Token { kind: TokenType::Eq, value: "=".into(), line }); } continue; }
             if c == '?' && self.peek() == Some('.') { self.advance(); self.advance(); tokens.push(Token { kind: TokenType::QuestionDot, value: "?.".into(), line }); continue; }
+            if c == '@' { self.advance(); tokens.push(Token { kind: TokenType::At, value: "@".into(), line }); continue; }
             if c == '!' { self.advance(); if self.cur() == Some('=') { self.advance(); tokens.push(Token { kind: TokenType::Neq, value: "!=".into(), line }); } else { tokens.push(Token { kind: TokenType::Bang, value: "!".into(), line }); } continue; }
             if c == '<' { self.advance(); if self.cur() == Some('=') { self.advance(); tokens.push(Token { kind: TokenType::LtEq, value: "<=".into(), line }); } else { tokens.push(Token { kind: TokenType::Lt, value: "<".into(), line }); } continue; }
             if c == '>' { self.advance(); if self.cur() == Some('=') { self.advance(); tokens.push(Token { kind: TokenType::GtEq, value: ">=".into(), line }); } else { tokens.push(Token { kind: TokenType::Gt, value: ">".into(), line }); } continue; }

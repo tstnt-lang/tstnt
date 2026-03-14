@@ -21,6 +21,24 @@ pub mod arr2;
 pub mod json2;
 pub mod event;
 pub mod num;
+pub mod pickle;
+pub mod hashmap;
+pub mod set;
+pub mod zip2;
+pub mod xml;
+pub mod html;
+pub mod smtp;
+pub mod qr;
+pub mod matrix2;
+pub mod ini;
+pub mod toml;
+pub mod color2;
+pub mod base;
+pub mod bit;
+pub mod dns;
+pub mod signal2;
+pub mod pack;
+pub mod math3;
 
 pub fn call(module: &str, func: &str, args: Vec<Value>) -> Result<Value, String> {
     match module {
@@ -63,6 +81,24 @@ pub fn call(module: &str, func: &str, args: Vec<Value>) -> Result<Value, String>
         "json2" => json2::call(func, args),
         "event" => event::call(func, args),
         "num" => num::call(func, args),
+        "pickle" => pickle::call(func, args),
+        "hashmap" => hashmap::call(func, args),
+        "set" => set::call(func, args),
+        "zip2" => zip2::call(func, args),
+        "xml" => xml::call(func, args),
+        "html" => html::call(func, args),
+        "smtp" => smtp::call(func, args),
+        "qr" => qr::call(func, args),
+        "matrix2" => matrix2::call(func, args),
+        "ini" => ini::call(func, args),
+        "toml" => toml::call(func, args),
+        "color2" => color2::call(func, args),
+        "base" => base::call(func, args),
+        "bit" => bit::call(func, args),
+        "dns" => dns::call(func, args),
+        "signal2" => signal2::call(func, args),
+        "pack" => pack::call(func, args),
+        "math3" => math3::call(func, args),
         _ => Err(format!("{}.{}: unknown module", module, func))
     }
 }
