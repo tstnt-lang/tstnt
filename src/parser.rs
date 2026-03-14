@@ -282,7 +282,11 @@ impl Parser {
             Ok(Node::Loop { var, start: Box::new(iter_or_start), end: Box::new(end), body })
         } else {
             self.expect(TokenType::LBrace)?; let body = self.parse_block()?; self.expect(TokenType::RBrace)?;
-            Ok(Node::LoopIn { var, iter: Box::new(iter_or_start), body })
+            if let Some(idx_var) = enum_var {
+                Ok(Node::LoopEnum { idx: var, var: idx_var, iter: Box::new(iter_or_start), body })
+            } else {
+                Ok(Node::LoopIn { var, iter: Box::new(iter_or_start), body })
+            }
         }
     }
     fn parse_repeat(&mut self) -> Result<Node, String> {

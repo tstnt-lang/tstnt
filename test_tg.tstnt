@@ -1,0 +1,54 @@
+use tg
+use thread
+
+struct Player {
+    name: str
+    hp: int
+    level: int
+    gold: int
+}
+
+do main {
+    tg.token("8243206214:AAF0J8gtiRDLoKBbSK7wDKLTtMMbt5dJJTw")
+    tg.delete_webhook()
+    print("Bot started")
+
+    let mut offset = 0
+    while true {
+        let updates = tg.get_updates(offset)
+        loop upd in updates {
+            let chat_id = upd.chat_id
+            let text = upd.text
+            let uid = upd.update_id
+            offset = uid + 1
+
+            if text == "" {
+                # стикер/фото/другое — игнорируем
+            } else {
+                if text == "/start" {
+                    tg.send_keyboard(chat_id, "Добро пожаловать в RPG!\nВыбери действие:", [["⚔️ Сражаться", "🏪 Магазин"], ["📊 Статус", "🗺 Квест"]])
+                } else {
+                    if text == "⚔️ Сражаться" {
+                        let dmg = 15 + (uid % 20)
+                        tg.send_inline(chat_id, "⚔️ Враг атакует!\nТы нанёс " + str(dmg) + " урона!\n\nЧто делаешь?", [[["Атаковать", "attack"], ["Убежать", "run"]], [["Использовать зелье", "potion"]]])
+                    } else {
+                        if text == "📊 Статус" {
+                            tg.send_keyboard(chat_id, "📊 Твой статус:\n❤️ HP: 100/100\n⚔️ Урон: 20\n🏅 Уровень: 1\n💰 Золото: 50", [["⚔️ Сражаться", "🏪 Магазин"], ["📊 Статус", "🗺 Квест"]])
+                        } else {
+                            if text == "🏪 Магазин" {
+                                tg.send_inline(chat_id, "🏪 Магазин:\nЧто купить?", [[["🧪 Зелье (10g)", "buy_potion"], ["⚔️ Меч (50g)", "buy_sword"]], [["🛡 Щит (40g)", "buy_shield"], ["❌ Выйти", "shop_exit"]]])
+                            } else {
+                                if text == "🗺 Квест" {
+                                    tg.send_keyboard(chat_id, "🗺 Доступные квесты:\n\n1. Убить 5 гоблинов\n2. Найти артефакт\n3. Помочь деревне\n\nВыбери квест:", [["📜 Квест 1", "📜 Квест 2"], ["📜 Квест 3", "🔙 Назад"]])
+                                } else {
+                                    tg.send_keyboard(chat_id, "Ты написал: " + text, [["⚔️ Сражаться", "🏪 Магазин"], ["📊 Статус", "🗺 Квест"]])
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        thread.sleep(500)
+    }
+}

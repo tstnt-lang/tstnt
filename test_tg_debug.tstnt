@@ -1,7 +1,7 @@
 use tg
 
 do main {
-    tg.token("token")
+    tg.token("8243206214:AAF0J8gtiRDLoKBbSK7wDKLTtMMbt5dJJTw")
     print("ping:")
     print(tg.ping())
     print("raw updates:")

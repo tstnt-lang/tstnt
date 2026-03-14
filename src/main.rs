@@ -65,7 +65,58 @@ fn main() {
                 _ => eprintln!("Usage: tstnt pkg [install|uninstall|list|search]"),
             }
         }
-        Some("version") => println!("tstnt v0.4.0"),
+        Some("watch") => {
+            if let Some(f) = args.get(2) {
+                let f = f.clone();
+                println!("Watching: {}", f);
+                let mut last_mod = std::fs::metadata(&f).and_then(|m| m.modified()).ok();
+                run_file(&f, false, debug);
+                loop {
+                    std::thread::sleep(std::time::Duration::from_millis(500));
+                    if let Ok(meta) = std::fs::metadata(&f) {
+                        if let Ok(modified) = meta.modified() {
+                            if Some(modified) != last_mod {
+                                last_mod = Some(modified);
+                                println!("\n--- Restarting ---\n");
+                                run_file(&f, false, debug);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Some("transpile") => {
+            if let Some(f) = args.get(2) {
+                let target = args.get(3).map(|s| s.as_str()).unwrap_or("py");
+                let src = fs::read_to_string(f).unwrap_or_default();
+                let tokens = Lexer::new(&src).tokenize();
+                let ast = Parser::new(tokens).parse().unwrap_or_default();
+                let out = match target {
+                    "py" | "python" => transpiler::to_python(&ast),
+                    "js" | "javascript" => transpiler::to_js(&ast),
+                    _ => { eprintln!("Unknown target: {} (use py or js)", target); return; }
+                };
+                let ext = if target.starts_with("py") { "py" } else { "js" };
+                let outfile = f.replace(".tstnt", &format!(".{}", ext));
+                fs::write(&outfile, &out).ok();
+                println!("Transpiled to: {}", outfile);
+            }
+        }
+        Some("version") | Some("--version") | Some("-v") => {
+            println!("[36m");
+            println!(r"  _____  ___  _____  _  _ _____");
+            println!(r" |_   _|/ __||_   _|| \| |_   _|");
+            println!(r"   | |  \__ \  | |  | .` | | |  ");
+            println!(r"   |_|  |___/  |_|  |_|\_| |_|  ");
+            println!("[0m");
+            println!("  v0.8.0  [90m— The TSTNT Language[0m");
+            println!("  [90mgithub.com/tstnt-lang[0m
+");
+        }
+        Some("--secret") => {
+            println!("[33m🐉 You found the secret![0m");
+            println!("  TSTNT was built with love on Android.");
+        }
         Some(f) => run_file(f, false, debug),
         None => repl::run(),
     }
