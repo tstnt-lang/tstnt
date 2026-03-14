@@ -1,29 +1,28 @@
 <div align="center">
 
-```
-  _____  ___  _____  _  _ _____
- |_   _|/ __||_   _|| \| |_   _|
-   | |  \__ \  | |  | .` | | |
-   |_|  |___/  |_|  |_|\_| |_|
-```
+<img src="tstnt_preview.png" alt="TSTNT Language" width="100%">
 
-**A modern, fast, and expressive programming language**  
-*Built on Android. Runs everywhere Rust does.*
+<br/>
+<br/>
 
-[![Version](https://img.shields.io/badge/version-0.8.0-7fffb2?style=flat-square)](https://github.com/tstnt-lang/tstnt/releases)
-[![License](https://img.shields.io/badge/license-MIT-7fb2ff?style=flat-square)](LICENSE)
-[![Built with Rust](https://img.shields.io/badge/built_with-Rust-ff7f7f?style=flat-square)](https://rust-lang.org)
-[![Packages](https://img.shields.io/badge/packages-100+-ffcc7f?style=flat-square)](https://github.com/tstnt-lang/packages)
+[![Version](https://img.shields.io/badge/version-0.8.0-3fb950?style=flat-square&logo=github)](https://github.com/tstnt-lang/tstnt/releases)
+[![License](https://img.shields.io/badge/license-MIT-58a6ff?style=flat-square)](LICENSE)
+[![Built with Rust](https://img.shields.io/badge/built_with-Rust-f97316?style=flat-square&logo=rust)](https://rust-lang.org)
+[![Packages](https://img.shields.io/badge/packages-100+-d29922?style=flat-square&logo=package)](https://github.com/tstnt-lang/packages)
+[![Docs](https://img.shields.io/badge/docs-tstnt--lang.github.io-8b949e?style=flat-square)](https://tstnt-lang.github.io)
 
-[Website](https://tstnt-lang.github.io) · [Docs](https://tstnt-lang.github.io/docs.html) · [Packages](https://github.com/tstnt-lang/packages) · [Changelog](#changelog)
+**[Website](https://tstnt-lang.github.io) · [Documentation](https://tstnt-lang.github.io/docs.html) · [Packages](https://github.com/tstnt-lang/packages)**
 
 </div>
 
 ---
 
-## What is TSTNT?
+## Overview
 
-TSTNT is a statically-typed scripting language with clean, readable syntax — inspired by Rust and Python. It ships as a single binary with zero external dependencies, a built-in package manager, database, Telegram API, transpiler to Python/JS, LSP server, and 100+ community packages.
+TSTNT is a statically-typed scripting language with clean, readable syntax — inspired by Rust and Python.  
+It ships as a **single binary** with zero external dependencies.
+
+Built from scratch on Android (Termux) using Rust.
 
 ```
 use "colors"
@@ -57,48 +56,45 @@ do main {
 
 ## Features
 
-| | Feature | Description |
-|---|---|---|
-| ⚡ | **Zero dependencies** | Single binary. No runtime, no VM, no install hell |
-| 📦 | **Package manager** | `tstnt pkg install logger` — 100+ packages on GitHub |
-| 🤖 | **Telegram built-in** | First-class bot API with keyboards, callbacks, RPG engine |
-| 🔄 | **Transpiler** | Convert TSTNT → Python or JavaScript automatically |
-| 🧪 | **Built-in testing** | `test` blocks with `assert_eq`, run with `tstnt test` |
-| 🗄 | **Built-in database** | Persistent key-value store, no SQLite needed |
-| 🔍 | **LSP server** | Autocomplete + hover for Neovim and VSCode |
-| 👁 | **Watch mode** | Auto-restart on file change |
-| 🧵 | **Threads & mutex** | Real OS threads with shared state |
-| 📱 | **Android native** | Designed and built entirely on Termux |
-| 🎮 | **Game library** | 2D vectors, collision, ASCII canvas, inventory, dice |
-| 🔐 | **Crypto built-in** | SHA256, MD5, Base64, hex — no dependencies |
+```
+Language          Structs, impl, generics, match, optional chaining, lambdas, async
+Tooling           REPL, formatter, watch mode, LSP server, bytecode compiler
+Packages          Built-in package manager, 100+ packages on GitHub
+Targets           Transpile to Python or JavaScript
+Telegram          First-class bot API — keyboards, callbacks, RPG engine
+Database          Built-in persistent key-value store, no SQLite needed
+Testing           Native test blocks with assert_eq, assert_ne
+Threads           Real OS threads with shared mutex
+Android           Designed and built entirely on Termux
+```
 
 ---
 
 ## Installation
 
-### Android (Termux)
+**Android (Termux)**
 
 ```bash
 pkg install rust git
 git clone https://github.com/tstnt-lang/tstnt
 cd tstnt
 cargo build --release
-mkdir -p ~/bin
-cp target/release/tstnt ~/bin/tstnt
+mkdir -p ~/bin && cp target/release/tstnt ~/bin/
 echo 'export PATH=$PATH:~/bin' >> ~/.bashrc && source ~/.bashrc
-tstnt --version
 ```
 
-### Linux / macOS
+**Linux / macOS**
 
 ```bash
-# Install Rust if needed
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
 git clone https://github.com/tstnt-lang/tstnt
-cd tstnt
-cargo build --release
+cd tstnt && cargo build --release
 sudo cp target/release/tstnt /usr/local/bin/
+```
+
+Verify:
+
+```bash
 tstnt --version
 ```
 
@@ -107,77 +103,56 @@ tstnt --version
 ## Quick Start
 
 ```bash
-# Create a file
-echo 'do main { print("hello world") }' > hello.tstnt
-
-# Run it
-tstnt hello.tstnt
-
-# Interactive REPL
-tstnt repl
-
-# Install packages
-tstnt pkg install logger
-tstnt pkg install colors
-tstnt pkg search
-
-# Watch mode (auto-restart on save)
-tstnt watch hello.tstnt
-
-# Run tests
-tstnt test tests.tstnt
-
-# Transpile to Python
-tstnt transpile hello.tstnt py
-
-# Transpile to JavaScript
-tstnt transpile hello.tstnt js
+tstnt hello.tstnt          # run a file
+tstnt repl                  # interactive shell
+tstnt test tests.tstnt     # run test blocks
+tstnt watch hello.tstnt    # auto-restart on file change
+tstnt transpile f.tstnt py # convert to Python
+tstnt transpile f.tstnt js # convert to JavaScript
+tstnt fmt hello.tstnt      # format code
+tstnt pkg install logger   # install a package
+tstnt pkg search           # browse all packages
 ```
 
 ---
 
-## Language Overview
+## Language Reference
 
 <details>
-<summary><strong>Variables & Types</strong></summary>
+<summary>Variables & Types</summary>
 
 ```
-let x: int   = 42
-let f: float = 3.14
-let s: str   = "hello"
-let b: bool  = true
-let arr      = [1, 2, 3]
-let mut n    = 0          # mutable
+let x: int    = 42
+let f: float  = 3.14
+let s: str    = "hello"
+let b: bool   = true
+let arr       = [1, 2, 3]
+let mut n     = 0
 
 n += 1
 n -= 1
 n *= 2
 
-let (a, b) = (10, 20)    # multi-assign
-let c = [0, ...arr, 4]   # spread
+let (a, b)    = (10, 20)     # multi-assign
+let merged    = [0, ...arr]  # spread
 ```
 
-Types: `int` `float` `str` `bool` `[T]` `(T, U)` `null` `any`
+Types: `int` `float` `str` `bool` `[T]` `(T,U)` `null` `any`
 
 </details>
 
 <details>
-<summary><strong>Functions & Generics</strong></summary>
+<summary>Functions & Generics</summary>
 
 ```
 do add(a: int, b: int) -> int {
     return a + b
 }
 
-do greet(name: str) {
-    print("Hello, " + name)
-}
-
 async do fetch(url: str) -> str {
     return await net.get(url)
 }
 
-# Generics
 do max_val<T>(a: T, b: T) -> T {
     return a > b ? a : b
 }
@@ -189,7 +164,7 @@ print(max_val("a", "z"))    # z
 </details>
 
 <details>
-<summary><strong>Structs & Impl</strong></summary>
+<summary>Structs & Impl</summary>
 
 ```
 struct User {
@@ -208,13 +183,12 @@ impl User {
 
 let u = User { name: "Alice", age: 25 }
 print(u.greet())
-print(u.is_adult())
 ```
 
 </details>
 
 <details>
-<summary><strong>Match & Pattern Matching</strong></summary>
+<summary>Match</summary>
 
 ```
 match score {
@@ -224,54 +198,51 @@ match score {
     _        -> print("try again")
 }
 
-# Match with guard
 match n {
     x if x < 0 -> print("negative")
     x if x > 0 -> print("positive")
     _           -> print("zero")
 }
-
-# Match on null
-match user?.name {
-    null -> print("no user")
-    name -> print("Hello, " + name)
-}
 ```
 
 </details>
 
 <details>
-<summary><strong>Loops & Functional</strong></summary>
+<summary>Loops & Functional</summary>
 
 ```
-# Range
 loop i in 0..10 { print(i) }
 
-# Array
 loop item in fruits { print(item) }
 
-# Enumerate
 loop i, item in fruits {
     print(str(i) + ": " + item)
 }
 
-# Repeat N times
 repeat 5 { print("hi") }
 
-# Functional
 let nums    = [1, 2, 3, 4, 5]
 let doubled = map(nums, |x| x * 2)
 let evens   = filter(nums, |x| x % 2 == 0)
 let total   = reduce(nums, |acc x| acc + x, 0)
 
-# Pipe
-let result = value | double | str
+let result  = value | double | str
 ```
 
 </details>
 
 <details>
-<summary><strong>Error Handling</strong></summary>
+<summary>Optional Chaining</summary>
+
+```
+let name   = user?.profile?.name
+let result = obj?.method()
+```
+
+</details>
+
+<details>
+<summary>Error Handling</summary>
 
 ```
 try {
@@ -284,34 +255,26 @@ try {
 </details>
 
 <details>
-<summary><strong>Tests</strong></summary>
+<summary>Tests</summary>
 
 ```
-do add(a: int, b: int) -> int { return a + b }
-
 test addition {
-    assert_eq(add(1, 2), 3)
-    assert_ne(add(1, 1), 3)
-    assert(add(5, 5) > 9)
-}
-
-test strings {
-    assert_eq(len("hello"), 5)
-    assert_eq("a" + "b", "ab")
+    assert_eq(1 + 1, 2)
+    assert_ne("a", "b")
+    assert(5 > 3)
 }
 ```
 
 ```bash
 tstnt test myfile.tstnt
 # ✓ addition
-# ✓ strings
-# 2/2 passed
+# 1/1 passed
 ```
 
 </details>
 
 <details>
-<summary><strong>Telegram Bot</strong></summary>
+<summary>Telegram Bot</summary>
 
 ```
 use tg
@@ -328,8 +291,8 @@ do main {
             offset = upd.update_id + 1
             if upd.text == "/start" {
                 tg.send_keyboard(upd.chat_id,
-                    "Welcome! Choose an action:",
-                    [["⚔️ Fight", "🏪 Shop"], ["📊 Stats", "🗺 Quest"]])
+                    "Welcome!",
+                    [["Option A", "Option B"]])
             } else {
                 tg.send(upd.chat_id, "You said: " + upd.text)
             }
@@ -343,80 +306,71 @@ do main {
 
 ---
 
-## CLI Reference
+## CLI
 
 ```
-tstnt <file.tstnt>               Run a file
-tstnt repl                        Interactive shell
-tstnt test <file.tstnt>          Run test blocks
-tstnt build <file.tstnt>         Compile to .tst bytecode
-tstnt run <file.tst>             Run compiled bytecode
-tstnt watch <file.tstnt>         Auto-restart on change
-tstnt fmt <file.tstnt>           Format code
-tstnt transpile <file> [py|js]   Transpile to Python or JS
-tstnt pkg install <name>         Install a package
-tstnt pkg uninstall <name>       Remove a package
-tstnt pkg list                   List installed packages
-tstnt pkg search [query]         Search available packages
-tstnt --version                  Version + ASCII art
-tstnt --secret                   🐉
+tstnt <file>                    Run file
+tstnt repl                       Interactive REPL
+tstnt test <file>               Run test blocks
+tstnt build <file>              Compile to .tst bytecode
+tstnt run <file.tst>            Run bytecode
+tstnt watch <file>              Auto-restart on change
+tstnt fmt <file>                Format code
+tstnt transpile <f> [py|js]    Transpile to Python or JS
+tstnt pkg install <name>        Install package
+tstnt pkg uninstall <name>      Remove package
+tstnt pkg list                   List installed
+tstnt pkg search [query]         Browse available
+tstnt --version                  Show version
+tstnt --secret                   ...
 ```
 
 ---
 
 ## Standard Library
 
-| Module | Key Functions |
-|--------|--------------|
-| `io` | `print`, `input`, `read_file`, `write_file` |
-| `math` | `sqrt`, `pow`, `abs`, `floor`, `ceil`, `min`, `max` |
-| `strings` | `split`, `join`, `trim`, `upper`, `lower`, `contains`, `replace` |
-| `arr` | `push`, `pop`, `first`, `last`, `reverse`, `contains` |
-| `json` | `parse`, `stringify` |
-| `fs` | `read`, `write`, `append`, `exists`, `delete`, `mkdir`, `ls` |
-| `crypto` | `sha256`, `md5`, `base64_encode`, `base64_decode`, `hex_encode` |
-| `rand` | `int`, `float`, `bool`, `choice`, `shuffle` |
-| `time` | `now`, `sleep` |
-| `env` | `get`, `set`, `args` |
-| `sys` | `os`, `arch`, `cwd`, `home`, `hostname`, `cpu_count` |
-| `db` | `set`, `get`, `has`, `delete`, `keys`, `count`, `incr` |
-| `term` | `red`, `green`, `yellow`, `blue`, `bold`, `dim`, `reset` |
-| `tg` | `token`, `send`, `send_keyboard`, `send_inline`, `get_updates` |
-| `thread` | `spawn`, `sleep`, `mutex_new`, `mutex_get`, `mutex_set` |
-| `game` | `set`, `get`, `inv_add`, `inv_list`, `roll`, `clamp`, `lerp` |
-| `bench` | `now_ms`, `now_us`, `elapsed` |
-| `hash` | `fnv32`, `fnv64`, `crc32`, `djb2` |
-| `uuid` | `v4`, `nil` |
-| `log` | `info`, `warn`, `error`, `debug` |
+| Module | Description |
+|--------|-------------|
+| `io` | print, input, read/write files |
+| `math` | sqrt, pow, abs, floor, ceil, min, max |
+| `strings` | split, join, trim, upper, lower, replace |
+| `arr` | push, pop, reverse, contains, slice |
+| `json` | parse, stringify |
+| `fs` | read, write, append, exists, mkdir, ls |
+| `crypto` | sha256, md5, base64, hex |
+| `rand` | int, float, bool, choice, shuffle |
+| `time` | now, sleep |
+| `db` | set, get, has, delete, keys, count, incr |
+| `tg` | token, send, send_keyboard, send_inline, get_updates |
+| `thread` | spawn, sleep, mutex_new/get/set |
+| `game` | state, inventory, dice, clamp, lerp |
+| `term` | red, green, yellow, blue, bold, dim |
+| `bench` | now_ms, elapsed |
+| `sys` | os, arch, cwd, home, hostname, cpu_count |
 
 ---
 
 ## Packages
 
-100+ packages available at [github.com/tstnt-lang/packages](https://github.com/tstnt-lang/packages)
+100+ packages at [github.com/tstnt-lang/packages](https://github.com/tstnt-lang/packages)
 
 ```bash
-tstnt pkg install logger        # Colored logging
-tstnt pkg install colors        # Terminal colors
-tstnt pkg install stats         # mean, median, std_dev
-tstnt pkg install fake-data     # Generate test data
-tstnt pkg install auth          # Register, login, sessions
-tstnt pkg install tg-rpg        # Telegram RPG engine
-tstnt pkg install game-2d       # 2D vectors and ASCII canvas
-tstnt pkg install ansi          # Full ANSI terminal control
-tstnt pkg install benchmark-suite  # Benchmark runner
-tstnt pkg install migrate       # Database migrations
+tstnt pkg install logger
+tstnt pkg install colors
+tstnt pkg install stats
+tstnt pkg install tg-rpg
+tstnt pkg install game-2d
+tstnt pkg install auth
+tstnt pkg install benchmark-suite
 ```
 
-Use in code:
+Multi-file packages:
 
 ```
-use "logger"
 use "ansi"
-use "ansi/effects"    # multi-file packages supported
+use "ansi/effects"
 
 do main {
-    logger.info("Starting...")
     print(ansi.rgb(255, 100, 0, "Orange!"))
     print(effects.rainbow("TSTNT"))
 }
@@ -426,72 +380,42 @@ do main {
 
 ## Editor Support
 
-### Neovim
+**Neovim**
 
 ```bash
 mkdir -p ~/.config/nvim/syntax
 cp editor/neovim/tstnt.vim ~/.config/nvim/syntax/
+# Add to init.vim: au BufRead,BufNewFile *.tstnt set filetype=tstnt
 ```
 
-Add to `~/.config/nvim/init.vim`:
-```vim
-au BufRead,BufNewFile *.tstnt set filetype=tstnt
-```
+**VSCode** — copy `editor/vscode/` to `~/.vscode/extensions/tstnt-lang/`
 
-### VSCode
-
-Copy `editor/vscode/` to `~/.vscode/extensions/tstnt-lang/`
-
-### LSP Server
-
-```bash
-cp target/release/tstnt-lsp ~/bin/
-```
-
-Configure in your editor to use `tstnt-lsp` for `.tstnt` files.
+**LSP** — `tstnt-lsp` binary (JSON-RPC, autocomplete, hover)
 
 ---
 
 ## Project Structure
 
 ```
-tstnt/
-├── src/
-│   ├── main.rs           CLI entry point
-│   ├── lexer.rs          Tokenizer
-│   ├── parser.rs         AST parser
-│   ├── interpreter.rs    Tree-walking interpreter
-│   ├── value.rs          Value types
-│   ├── compiler.rs       Bytecode compiler
-│   ├── transpiler.rs     Python/JS transpiler
-│   ├── repl.rs           Interactive REPL
-│   ├── formatter.rs      Code formatter
-│   ├── pkg.rs            Package manager
-│   ├── stdlib/           30+ built-in modules
-│   │   ├── mod.rs
-│   │   ├── io.rs
-│   │   ├── math.rs
-│   │   ├── tg.rs         Telegram API
-│   │   ├── db.rs         Key-value database
-│   │   ├── game.rs       Game utilities
-│   │   └── ...
-│   ├── vm/               Bytecode VM
-│   │   ├── mod.rs
-│   │   ├── opcode.rs
-│   │   ├── chunk.rs
-│   │   └── codegen.rs
-│   ├── lsp/              LSP server
-│   │   └── main.rs
-│   └── builtin_pkgs/     Offline package cache
-│       ├── colors.tstnt
-│       ├── logger.tstnt
-│       └── ...
-├── editor/
-│   ├── neovim/tstnt.vim
-│   └── vscode/tstnt.tmLanguage.json
-├── test.tstnt
-├── test_suite.tstnt
-└── test_tg.tstnt
+src/
+  main.rs           CLI
+  lexer.rs          Tokenizer
+  parser.rs         AST parser
+  interpreter.rs    Tree-walking interpreter
+  value.rs          Value types
+  transpiler.rs     Python / JS transpiler
+  compiler.rs       Bytecode compiler
+  repl.rs           Interactive REPL
+  formatter.rs      Code formatter
+  pkg.rs            Package manager
+  stdlib/           30+ built-in modules
+  vm/               Bytecode VM
+  lsp/              LSP server
+  builtin_pkgs/     Offline package cache
+
+editor/
+  neovim/tstnt.vim
+  vscode/tstnt.tmLanguage.json
 ```
 
 ---
@@ -499,31 +423,29 @@ tstnt/
 ## Changelog
 
 ### v0.8.0
-- `obj?.field` and `obj?.method()` — optional chaining
+- Optional chaining `obj?.field`
 - `db` module — persistent key-value database
-- 11 new built-in modules: `color`, `os`, `math2`, `str2`, `net2`, `type`, `io2`, `arr2`, `json2`, `event`, `num`
+- 11 new modules: `color` `os` `math2` `str2` `net2` `type` `io2` `arr2` `json2` `event` `num`
 - Transpiler: `tstnt transpile file.tstnt py|js`
 - Syntax highlighting for Neovim and VSCode
-- Easter eggs in `print()` and `--secret`
+- Easter eggs
 
 ### v0.7.0
-- Watch mode: `tstnt watch`
-- Beautiful error messages with line pointer
+- Watch mode
+- Pretty error messages with line pointer
 - ASCII art version banner
-- `tstnt pkg install` downloads from `github.com/tstnt-lang/packages`
+- Package downloads from `github.com/tstnt-lang/packages`
 
 ### v0.6.0
-- `loop i, item in arr` — enumerate
-- `if` as expression
-- Functions as values
-- `game`, `input` modules
+- `loop i, item in arr` enumerate
+- `game` and `input` modules
 - 11 built-in packages
 
 ### v0.5.0
-- `thread.spawn`, mutex, real OS threads
-- Generics: `do max<T>(a: T, b: T) -> T`
-- LSP server (`tstnt-lsp`)
-- `tg` module — Telegram bot API
+- Real OS threads and mutex
+- Generics
+- LSP server
+- Telegram bot API
 
 ---
 
@@ -534,5 +456,8 @@ MIT — see [LICENSE](LICENSE)
 ---
 
 <div align="center">
-  <sub>Built with ❤️ on Android · <a href="https://tstnt-lang.github.io">tstnt-lang.github.io</a></sub>
+  <sub>
+    Built on Android with Rust ·
+    <a href="https://tstnt-lang.github.io">tstnt-lang.github.io</a>
+  </sub>
 </div>
