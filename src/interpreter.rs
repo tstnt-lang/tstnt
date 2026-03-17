@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH};
 use crate::parser::{Node, MatchPattern, InterpPart};
 use crate::value::Value;
 use crate::stdlib;
@@ -11,11 +12,14 @@ pub struct Interpreter {
     pub impls: HashMap<String, HashMap<String, (Vec<(String, String)>, Vec<Node>)>>,
     pub test_results: Vec<(String, bool, String)>,
     pub debug: bool,
+    cache_store: HashMap<String, Value>,
+    timer_funcs: std::collections::HashSet<String>,
+    deprecated_funcs: std::collections::HashSet<String>,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
-        Interpreter { env: vec![HashMap::new()], functions: HashMap::new(), impls: HashMap::new(), test_results: Vec::new(), debug: false }
+        Interpreter { env: vec![HashMap::new()], functions: HashMap::new(), impls: HashMap::new(), test_results: Vec::new(), debug: false, cache_store: HashMap::new(), timer_funcs: std::collections::HashSet::new(), deprecated_funcs: std::collections::HashSet::new() }
     }
     fn push_scope(&mut self) { self.env.push(HashMap::new()); }
     fn pop_scope(&mut self) { self.env.pop(); }
@@ -53,21 +57,18 @@ impl Interpreter {
                             let body = body.clone();
                             let is_async = *is_async;
                             let dname = name.clone();
-                            // Оборачиваем функцию в зависимости от декоратора
                             match dname.as_str() {
                                 "cache" => {
-                                    // Добавляем кэширующую обёртку через game.get/set
-                                    let _cache_key = format!("__cache_{}__", fname);
+                                    self.cache_store.insert(format!("__cache_registered_{}__", fname), Value::Bool(true));
                                     self.functions.insert(fname.clone(), (params.clone(), body.clone(), is_async));
-                                    eprintln!("[decorator] @cache applied to {}", fname);
                                 }
                                 "timer" => {
+                                    self.timer_funcs.insert(fname.clone());
                                     self.functions.insert(fname.clone(), (params.clone(), body.clone(), is_async));
-                                    eprintln!("[decorator] @timer applied to {}", fname);
                                 }
                                 "deprecated" => {
+                                    self.deprecated_funcs.insert(fname.clone());
                                     self.functions.insert(fname.clone(), (params.clone(), body.clone(), is_async));
-                                    eprintln!("[decorator] @deprecated: {} is deprecated", fname);
                                 }
                                 _ => {
                                     self.functions.insert(fname, (params, body, is_async));
@@ -617,8 +618,129 @@ impl Interpreter {
                 (Some(Value::Float(v)), Some(Value::Float(lo)), Some(Value::Float(hi))) => Ok(Value::Float(v.max(*lo).min(*hi))),
                 _ => Err("clamp: (val, min, max)".into())
             }
+            "find" => match (args.first(), args.get(1)) {
+                (Some(Value::Array(arr)), Some(Value::Lambda(params, body))) => {
+                    let arr = arr.clone(); let params = params.clone(); let body = body.clone();
+                    for item in arr {
+                        self.push_scope();
+                        if let Some(p) = params.first() { self.set_local(p, item.clone()); }
+                        let v = self.eval(&body)?;
+                        self.pop_scope();
+                        if self.truthy(&v) { return Ok(item); }
+                    }
+                    Ok(Value::Null)
+                }
+                _ => Err("find: (array, lambda)".into())
+            }
+            "every" => match (args.first(), args.get(1)) {
+                (Some(Value::Array(arr)), Some(Value::Lambda(params, body))) => {
+                    let arr = arr.clone(); let params = params.clone(); let body = body.clone();
+                    for item in arr {
+                        self.push_scope();
+                        if let Some(p) = params.first() { self.set_local(p, item); }
+                        let v = self.eval(&body)?;
+                        self.pop_scope();
+                        if !self.truthy(&v) { return Ok(Value::Bool(false)); }
+                    }
+                    Ok(Value::Bool(true))
+                }
+                _ => Err("every: (array, lambda)".into())
+            }
+            "any" => match (args.first(), args.get(1)) {
+                (Some(Value::Array(arr)), Some(Value::Lambda(params, body))) => {
+                    let arr = arr.clone(); let params = params.clone(); let body = body.clone();
+                    for item in arr {
+                        self.push_scope();
+                        if let Some(p) = params.first() { self.set_local(p, item); }
+                        let v = self.eval(&body)?;
+                        self.pop_scope();
+                        if self.truthy(&v) { return Ok(Value::Bool(true)); }
+                    }
+                    Ok(Value::Bool(false))
+                }
+                _ => Err("any: (array, lambda)".into())
+            }
+            "flat_map" => match (args.first(), args.get(1)) {
+                (Some(Value::Array(arr)), Some(Value::Lambda(params, body))) => {
+                    let arr = arr.clone(); let params = params.clone(); let body = body.clone();
+                    let mut result = Vec::new();
+                    for item in arr {
+                        self.push_scope();
+                        if let Some(p) = params.first() { self.set_local(p, item); }
+                        let v = self.eval(&body)?;
+                        self.pop_scope();
+                        match v { Value::Array(inner) => result.extend(inner), other => result.push(other) }
+                    }
+                    Ok(Value::Array(result))
+                }
+                _ => Err("flat_map: (array, lambda)".into())
+            }
+            "count_where" => match (args.first(), args.get(1)) {
+                (Some(Value::Array(arr)), Some(Value::Lambda(params, body))) => {
+                    let arr = arr.clone(); let params = params.clone(); let body = body.clone();
+                    let mut count = 0i64;
+                    for item in arr {
+                        self.push_scope();
+                        if let Some(p) = params.first() { self.set_local(p, item); }
+                        let v = self.eval(&body)?;
+                        self.pop_scope();
+                        if self.truthy(&v) { count += 1; }
+                    }
+                    Ok(Value::Int(count))
+                }
+                _ => Err("count_where: (array, lambda)".into())
+            }
+            "take" => match (args.first(), args.get(1)) {
+                (Some(Value::Array(a)), Some(Value::Int(n))) => Ok(Value::Array(a.iter().take(*n as usize).cloned().collect())),
+                _ => Err("take: (array, n)".into())
+            }
+            "drop" => match (args.first(), args.get(1)) {
+                (Some(Value::Array(a)), Some(Value::Int(n))) => Ok(Value::Array(a.iter().skip(*n as usize).cloned().collect())),
+                _ => Err("drop: (array, n)".into())
+            }
+            "chunks" => match (args.first(), args.get(1)) {
+                (Some(Value::Array(a)), Some(Value::Int(n))) => {
+                    let size = *n as usize;
+                    Ok(Value::Array(a.chunks(size).map(|c| Value::Array(c.to_vec())).collect()))
+                }
+                _ => Err("chunks: (array, size)".into())
+            }
+            "concat" => {
+                let mut result = Vec::new();
+                for arg in &args { match arg { Value::Array(a) => result.extend(a.clone()), v => result.push(v.clone()) } }
+                Ok(Value::Array(result))
+            }
+            "reverse" => match args.first() {
+                Some(Value::Array(a)) => { let mut v = a.clone(); v.reverse(); Ok(Value::Array(v)) }
+                Some(Value::Str(s)) => Ok(Value::Str(s.chars().rev().collect())),
+                _ => Err("reverse: array or str".into())
+            }
+            "index_of" => match (args.first(), args.get(1)) {
+                (Some(Value::Array(a)), Some(v)) => Ok(a.iter().position(|x| x.to_string() == v.to_string()).map(|i| Value::Int(i as i64)).unwrap_or(Value::Int(-1))),
+                (Some(Value::Str(s)), Some(Value::Str(pat))) => Ok(s.find(pat.as_str()).map(|i| Value::Int(i as i64)).unwrap_or(Value::Int(-1))),
+                _ => Err("index_of: (array, val) or (str, str)".into())
+            }
+            "slice" => match args.first() {
+                Some(Value::Array(a)) => {
+                    let from = match args.get(1) { Some(Value::Int(n)) => *n as usize, _ => 0 };
+                    let to = match args.get(2) { Some(Value::Int(n)) => *n as usize, _ => a.len() };
+                    Ok(Value::Array(a[from.min(a.len())..to.min(a.len())].to_vec()))
+                }
+                Some(Value::Str(s)) => {
+                    let chars: Vec<char> = s.chars().collect();
+                    let from = match args.get(1) { Some(Value::Int(n)) => *n as usize, _ => 0 };
+                    let to = match args.get(2) { Some(Value::Int(n)) => *n as usize, _ => chars.len() };
+                    Ok(Value::Str(chars[from.min(chars.len())..to.min(chars.len())].iter().collect()))
+                }
+                _ => Err("slice: (array|str, from, to)".into())
+            }
+            "sprintf" => {
+                let template = match args.first() { Some(Value::Str(s)) => s.clone(), _ => return Err("sprintf: (template, ...)".into()) };
+                let mut result = template.clone();
+                for arg in args.iter().skip(1) { result = result.replacen("{}", &arg.to_string(), 1); }
+                Ok(Value::Str(result))
+            }
             _ => {
-                // Функция как значение — если в env есть Lambda
                 if let Some(Value::Lambda(params, body)) = self.get(name) {
                     let params = params.clone(); let body = body.clone();
                     self.push_scope();
@@ -626,9 +748,33 @@ impl Interpreter {
                     let v = self.eval(&body)?; self.pop_scope(); return Ok(v);
                 }
                 if let Some((params, body, _)) = self.functions.get(name).cloned() {
+                    if self.deprecated_funcs.contains(name) {
+                        eprintln!("\x1b[33mwarning\x1b[0m: '{}' is deprecated", name);
+                    }
+                    let is_cached = self.cache_store.contains_key(&format!("__cache_registered_{}__", name));
+                    if is_cached {
+                        let cache_key = format!("__cache_{}_{}__", name, args.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(","));
+                        if let Some(cached) = self.cache_store.get(&cache_key).cloned() {
+                            return Ok(cached);
+                        }
+                        self.push_scope();
+                        for ((pname, _), val) in params.iter().zip(args.iter()) { self.set_local(pname, val.clone()); }
+                        let result = self.exec_block(&body)?; self.pop_scope();
+                        let val = match result { Some(Signal::Return(v)) => v, _ => Value::Null };
+                        self.cache_store.insert(cache_key, val.clone());
+                        return Ok(val);
+                    }
+                    let is_timed = self.timer_funcs.contains(name);
+                    let start = if is_timed {
+                        SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
+                    } else { 0 };
                     self.push_scope();
                     for ((pname, _), val) in params.iter().zip(args.iter()) { self.set_local(pname, val.clone()); }
                     let result = self.exec_block(&body)?; self.pop_scope();
+                    if is_timed {
+                        let elapsed = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0) - start;
+                        eprintln!("\x1b[36m@timer\x1b[0m: {}() took {}ms", name, elapsed);
+                    }
                     Ok(match result { Some(Signal::Return(v)) => v, _ => Value::Null })
                 } else { Err(format!("Unknown function: {}", name)) }
             }

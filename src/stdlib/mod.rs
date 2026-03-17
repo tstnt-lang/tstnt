@@ -39,6 +39,11 @@ pub mod dns;
 pub mod signal2;
 pub mod pack;
 pub mod math3;
+pub mod http_server;
+pub mod sql;
+pub mod tui2;
+pub mod result;
+pub mod fmt2;
 
 pub fn call(module: &str, func: &str, args: Vec<Value>) -> Result<Value, String> {
     match module {
@@ -99,6 +104,11 @@ pub fn call(module: &str, func: &str, args: Vec<Value>) -> Result<Value, String>
         "signal2" => signal2::call(func, args),
         "pack" => pack::call(func, args),
         "math3" => math3::call(func, args),
+        "server" | "http_server" => http_server::call(func, args),
+        "sql" => sql::call(func, args),
+        "tui2" => tui2::call(func, args),
+        "result" => result::call(func, args),
+        "fmt2" => fmt2::call(func, args),
         _ => Err(format!("{}.{}: unknown module", module, func))
     }
 }

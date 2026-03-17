@@ -14,6 +14,8 @@ pub fn call(func: &str, args: Vec<Value>) -> Result<Value, String> {
     }
 }
 
+pub fn to_json_pub(v: &Value) -> String { to_json(v) }
+
 fn to_json(v: &Value) -> String {
     match v {
         Value::Null => "null".into(),
