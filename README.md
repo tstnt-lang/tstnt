@@ -5,10 +5,10 @@
 <br/>
 <br/>
 
-[![Version](https://img.shields.io/badge/version-0.9.0-3fb950?style=flat-square&logo=github)](https://github.com/tstnt-lang/tstnt/releases)
+[![Version](https://img.shields.io/badge/version-1.0.5-3fb950?style=flat-square&logo=github)](https://github.com/tstnt-lang/tstnt/releases)
 [![License](https://img.shields.io/badge/license-MIT-58a6ff?style=flat-square)](LICENSE)
 [![Built with Rust](https://img.shields.io/badge/built_with-Rust-f97316?style=flat-square&logo=rust)](https://rust-lang.org)
-[![Packages](https://img.shields.io/badge/packages-120+-d29922?style=flat-square)](https://github.com/tstnt-lang/packages)
+[![Packages](https://img.shields.io/badge/packages-140+-d29922?style=flat-square)](https://github.com/tstnt-lang/packages)
 [![Docs](https://img.shields.io/badge/docs-tstnt--lang.github.io-8b949e?style=flat-square)](https://tstnt-lang.github.io)
 
 **[Website](https://tstnt-lang.github.io) · [Docs](https://tstnt-lang.github.io/docs.html) · [Packages](https://github.com/tstnt-lang/packages)**
@@ -49,7 +49,7 @@ do main {
 
 ---
 
-## What's new in v0.9.0
+## What's new in v1.0.5
 
 ```
 tstnt new <project>    Scaffold a new project with src/ tests/ pkg.json README.md
@@ -106,7 +106,7 @@ tstnt watch src/main.tstnt  # auto-restart on save
 tstnt transpile f.tstnt py  # convert to Python
 tstnt transpile f.tstnt js  # convert to JavaScript
 tstnt pkg install logger    # install package
-tstnt pkg search            # browse 120+ packages
+tstnt pkg search            # browse 140+ packages
 tstnt --version             # show version
 tstnt --secret              # 🐉
 ```
@@ -338,7 +338,7 @@ tstnt transpile <f> [py|js]     Transpile
 tstnt pkg install <n>         Install package
 tstnt pkg uninstall <n>       Remove package
 tstnt pkg list                   Installed packages
-tstnt pkg search [query]         Browse 120+ packages
+tstnt pkg search [query]         Browse 140+ packages
 tstnt --version                  Version + ASCII art
 tstnt --secret                   🐉
 ```
@@ -382,7 +382,7 @@ tstnt --secret                   🐉
 
 ---
 
-## Packages (120+)
+## Packages (140+)
 
 [github.com/tstnt-lang/packages](https://github.com/tstnt-lang/packages)
 
@@ -416,7 +416,7 @@ cp editor/neovim/tstnt.vim ~/.config/nvim/syntax/
 
 ## Changelog
 
-### v0.9.0
+### v1.0.5
 - `tstnt new <project>` — project scaffolding
 - `@cache @timer @deprecated` decorators
 - `pickle` module — persist any value

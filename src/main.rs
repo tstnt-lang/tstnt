@@ -150,7 +150,7 @@ fn main() {
             println!(r"   | |  \__ \  | |  | .` | | |  ");
             println!(r"   |_|  |___/  |_|  |_|\_| |_|  ");
             println!("[0m");
-            println!("  v0.9.0  [90m— The TSTNT Language[0m");
+            println!("  v1.0.5  [90m— The TSTNT Language[0m");
             println!("  [90mgithub.com/tstnt-lang[0m
 ");
         }
