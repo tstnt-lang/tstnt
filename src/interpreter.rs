@@ -313,6 +313,13 @@ impl Interpreter {
             }
             Node::MethodCall { obj, method, args } => {
                 let method = method.clone();
+                if let Node::Ident(mod_name) = obj.as_ref() {
+                    let mod_name = mod_name.clone();
+                    if self.get(&mod_name).is_none() {
+                        let vals: Vec<Value> = args.iter().map(|a| self.eval(a)).collect::<Result<_, _>>()?;
+                        return stdlib::call(&mod_name, &method, vals);
+                    }
+                }
                 let obj_val = self.eval(obj)?;
                 let mut all_args = vec![obj_val.clone()];
                 for a in args { all_args.push(self.eval(a)?); }
