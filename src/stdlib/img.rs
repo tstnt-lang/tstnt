@@ -22,7 +22,7 @@ pub fn call(func: &str, args: Vec<Value>) -> Result<Value, String> {
             let w = match args.first() { Some(Value::Int(n)) => *n as usize, _ => 40 };
             let h = match args.get(1) { Some(Value::Int(n)) => *n as usize, _ => 10 };
             let mut out = String::new();
-            for y in 0..h {
+            for _y in 0..h {
                 for x in 0..w {
                     let b = (x * 9 / w.max(1)).min(9);
                     out.push(CHARS_DARK_TO_LIGHT[b]);

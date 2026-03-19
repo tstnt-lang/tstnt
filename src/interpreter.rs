@@ -435,7 +435,7 @@ impl Interpreter {
                     self.set_local(var, val);
                     let r = self.exec_block(body)?;
                     self.pop_scope();
-                    if let Some(sig) = r { return Ok(Value::Null); }
+                    if let Some(_sig) = r { return Ok(Value::Null); }
                 } else if let Some(eb) = else_body {
                     self.push_scope();
                     self.exec_block(eb)?;
@@ -508,8 +508,8 @@ impl Interpreter {
                 match msg.as_str() {
                     "hello world" | "Hello, World!" => { println!("{}  [90m<-- your first TSTNT program![0m", msg); }
                     "42" => { println!("42  [90m<-- the answer to everything[0m"); }
-                    "tstnt" | "TSTNT" => { println!("[36mTSTNT[0m [90m<-- that's us![0m"); }
-                    "meow" | "мяу" => { println!("🐱 meow~"); }
+                    "tstnt" | "TSTNT" => { println!("[36mTSTNT[0m [90m<-- that's us! github.com/tstnt-lang[0m"); }
+                    "meow" | "мяу" | "nyan" => { println!("🐱 purrr~ meow~"); }
                     "sudo" => { println!("[31mnice try[0m"); }
                     "rm -rf /" | "del /f /s /q c:\\" => { println!("[31mnice try... very nice try[0m"); }
                     "tstnt" | "TSTNT" => { println!("[36mTSTNT[0m [90m<-- that's us! github.com/tstnt-lang[0m"); }
@@ -543,6 +543,7 @@ impl Interpreter {
                 Some(Value::Array(_)) => Ok(Value::Str("array".into())), Some(Value::Tuple(_)) => Ok(Value::Str("tuple".into())),
                 Some(Value::Lambda(_, _)) => Ok(Value::Str("lambda".into())), Some(Value::Struct(n, _)) => Ok(Value::Str(n.clone())),
                 Some(Value::Null) | None => Ok(Value::Str("null".into())),
+                Some(Value::EnumVariant(en, vn, _)) => Ok(Value::Str(format!("{}::{}", en, vn))),
             }
             "is_null" => Ok(Value::Bool(matches!(args.first(), Some(Value::Null) | None))),
             "assert" => {

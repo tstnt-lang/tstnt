@@ -78,7 +78,7 @@ pub fn call(func: &str, args: Vec<Value>) -> Result<Value, String> {
             _ => Ok(Value::Null)
         }
         "map" => match (args.first(), args.get(1)) {
-            (Some(Value::Struct(name, fields)), Some(Value::Lambda(params, body))) => {
+            (Some(Value::Struct(name, fields)), Some(Value::Lambda(_params, _body))) => {
                 if let Some(Value::Bool(false)) = fields.get("ok") { return Ok(Value::Struct(name.clone(), fields.clone())); }
                 if let Some(Value::Bool(false)) = fields.get("some") { return Ok(none_val()); }
                 let val = fields.get("value").cloned().unwrap_or(Value::Null);

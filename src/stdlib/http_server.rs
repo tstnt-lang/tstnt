@@ -2,7 +2,7 @@ use crate::value::Value;
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 static ROUTES: std::sync::OnceLock<Mutex<HashMap<String, String>>> = std::sync::OnceLock::new();
 static RESPONSES: std::sync::OnceLock<Mutex<HashMap<String, String>>> = std::sync::OnceLock::new();

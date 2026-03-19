@@ -1,6 +1,5 @@
 use crate::value::Value;
 use std::fs;
-use std::io::{Read, Write};
 use std::path::Path;
 
 fn u16_le(n: u16) -> [u8; 2] { n.to_le_bytes() }

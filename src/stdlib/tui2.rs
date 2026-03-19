@@ -7,7 +7,7 @@ fn hide_cursor() -> String { "\x1b[?25l".to_string() }
 fn show_cursor() -> String { "\x1b[?25h".to_string() }
 
 pub fn call(func: &str, args: Vec<Value>) -> Result<Value, String> {
-    let stdout = io::stdout();
+    let _stdout = io::stdout();
     match func {
         "clear" => { print!("{}", clear_screen()); io::stdout().flush().ok(); Ok(Value::Null) }
         "hide_cursor" => { print!("{}", hide_cursor()); io::stdout().flush().ok(); Ok(Value::Null) }

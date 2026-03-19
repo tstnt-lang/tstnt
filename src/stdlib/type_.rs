@@ -11,6 +11,7 @@ pub fn call(func: &str, args: Vec<Value>) -> Result<Value, String> {
             Some(Value::Lambda(_, _)) => Ok(Value::Str("lambda".into())),
             Some(Value::Struct(n, _)) => Ok(Value::Str(n.clone())),
             Some(Value::Null) | None => Ok(Value::Str("null".into())),
+            Some(Value::EnumVariant(en, vn, _)) => Ok(Value::Str(format!("{}::{}", en, vn))),
         }
         "is_int" => Ok(Value::Bool(matches!(args.first(), Some(Value::Int(_))))),
         "is_str" => Ok(Value::Bool(matches!(args.first(), Some(Value::Str(_))))),

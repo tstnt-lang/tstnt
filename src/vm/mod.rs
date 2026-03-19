@@ -327,6 +327,7 @@ impl VM {
                         Value::Struct(_, _) => "struct",
                         Value::Lambda(_, _) => "lambda",
                         Value::Null => "null",
+                        Value::EnumVariant(_, _, _) => "enum",
                     };
                     self.push(Value::Str(t.into()));
                 }
