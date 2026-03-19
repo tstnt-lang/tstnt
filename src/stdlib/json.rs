@@ -30,6 +30,10 @@ fn to_json(v: &Value) -> String {
             format!("{{{}}}", pairs.join(","))
         }
         Value::Lambda(_, _) => "\"<lambda>\"".into(),
+        Value::EnumVariant(en, vn, data) => {
+            if data.is_empty() { format!("\"{}::{}\"", en, vn) }
+            else { format!("{{\"type\":\"{}::{}\",\"data\":[{}]}}", en, vn, data.iter().map(to_json).collect::<Vec<_>>().join(",")) }
+        }
     }
 }
 

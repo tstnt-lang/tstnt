@@ -512,8 +512,6 @@ impl Interpreter {
                     "meow" | "мяу" | "nyan" => { println!("🐱 purrr~ meow~"); }
                     "sudo" => { println!("[31mnice try[0m"); }
                     "rm -rf /" | "del /f /s /q c:\\" => { println!("[31mnice try... very nice try[0m"); }
-                    "tstnt" | "TSTNT" => { println!("[36mTSTNT[0m [90m<-- that's us! github.com/tstnt-lang[0m"); }
-                    "meow" | "мяу" | "nyan" => { println!("🐱 purrr~ meow~"); }
                     "woof" | "гав" => { println!("🐶 woof!"); }
                     "why" | "почему" => { println!("because it's fun 🐉"); }
                     "who made you" | "кто тебя создал" => { println!("A developer on Android with Rust and ☕"); }
