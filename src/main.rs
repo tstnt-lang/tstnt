@@ -28,9 +28,29 @@ fn run_file(path: &str, test_mode: bool, debug: bool) {
     let src = match fs::read_to_string(path) {
         Ok(s) => s, Err(e) => { eprintln!("\x1b[31merror\x1b[0m: {}", e); std::process::exit(1); }
     };
-    let tokens = Lexer::new(&src).tokenize();
-    let ast = match Parser::new(tokens).parse() {
-        Ok(a) => a, Err(e) => { pretty_error(&src, &e); std::process::exit(1); }
+    let cache_path = path.replace(".tstnt", ".tst_cache");
+    let src_meta = fs::metadata(path).ok();
+    let cache_meta = fs::metadata(&cache_path).ok();
+    let use_cache = if let (Some(sm), Some(cm)) = (&src_meta, &cache_meta) {
+        cm.modified().ok() > sm.modified().ok()
+    } else { false };
+    let ast = if use_cache && !debug {
+        let bytes = fs::read(&cache_path).unwrap_or_default();
+        let src2 = String::from_utf8_lossy(&bytes).to_string();
+        let tokens = Lexer::new(&src2).tokenize();
+        match Parser::new(tokens).parse() {
+            Ok(a) => a,
+            Err(_) => {
+                let tokens = Lexer::new(&src).tokenize();
+                match Parser::new(tokens).parse() { Ok(a) => a, Err(e) => { pretty_error(&src, &e); std::process::exit(1); } }
+            }
+        }
+    } else {
+        let tokens = Lexer::new(&src).tokenize();
+        match Parser::new(tokens).parse() {
+            Ok(a) => { fs::write(&cache_path, &src).ok(); a }
+            Err(e) => { pretty_error(&src, &e); std::process::exit(1); }
+        }
     };
     let mut interp = Interpreter::new();
     interp.debug = debug;
@@ -43,6 +63,39 @@ fn main() {
     let debug = args.contains(&"--debug".to_string());
     match args.get(1).map(|s| s.as_str()) {
         Some("repl") => repl::run(),
+        Some("check") => {
+            if let Some(f) = args.get(2) {
+                let src = match fs::read_to_string(f) {
+                    Ok(s) => s, Err(e) => { eprintln!("\x1b[31merror\x1b[0m: {}", e); std::process::exit(1); }
+                };
+                let tokens = Lexer::new(&src).tokenize();
+                match Parser::new(tokens).parse() {
+                    Ok(_) => println!("\x1b[32m✓\x1b[0m {} — no syntax errors", f),
+                    Err(e) => { pretty_error(&src, &e); std::process::exit(1); }
+                }
+            } else { eprintln!("Usage: tstnt check <file>"); }
+        }
+        Some("bench") => {
+            if let Some(f) = args.get(2) {
+                let n: u64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(10);
+                let src = match fs::read_to_string(f) {
+                    Ok(s) => s, Err(e) => { eprintln!("\x1b[31merror\x1b[0m: {}", e); std::process::exit(1); }
+                };
+                println!("\x1b[36mbench\x1b[0m running {} x{}", f, n);
+                let tokens = Lexer::new(&src).tokenize();
+                let ast = match Parser::new(tokens).parse() {
+                    Ok(a) => a, Err(e) => { pretty_error(&src, &e); std::process::exit(1); }
+                };
+                let start = std::time::Instant::now();
+                for _ in 0..n {
+                    let mut interp = Interpreter::new();
+                    let _ = interp.run(&ast);
+                }
+                let elapsed = start.elapsed().as_millis();
+                println!("\x1b[32m{}\x1b[0m runs in \x1b[33m{}ms\x1b[0m total, \x1b[33m{}ms\x1b[0m avg",
+                    n, elapsed, elapsed / n.max(1) as u128);
+            } else { eprintln!("Usage: tstnt bench <file> [runs]"); }
+        }
         Some("fmt") => { if let Some(f) = args.get(2) { if let Ok(s) = fs::read_to_string(f) { println!("{}", formatter::format(&s)); } } }
         Some("test") => { if let Some(f) = args.get(2) { run_file(f, true, debug); } else { eprintln!("Usage: tstnt test <file>"); } }
         Some("build") => {
@@ -150,7 +203,7 @@ fn main() {
             println!(r"   | |  \__ \  | |  | .` | | |  ");
             println!(r"   |_|  |___/  |_|  |_|\_| |_|  ");
             println!("[0m");
-            println!("  v1.0.5  [90m— The TSTNT Language[0m");
+            println!("  v1.1.0  [90m— The TSTNT Language[0m");
             println!("  [90mgithub.com/tstnt-lang[0m
 ");
         }

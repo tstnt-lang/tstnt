@@ -35,6 +35,9 @@ pub enum Node {
     ImplBlock { target: String, iface: Option<String>, methods: Vec<Node> },
     Array(Vec<Node>), Tuple(Vec<Node>), Spread(Box<Node>),
     StructInit { name: String, fields: Vec<(String, Node)> },
+    EnumVariantInit { enum_name: String, variant: String, args: Vec<Node> },
+    NamedArg { name: String, value: Box<Node> },
+    IfLet { var: String, value: Box<Node>, body: Vec<Node>, else_body: Option<Vec<Node>> },
     Ref(Box<Node>), Use(String), Mod(String),
     Try { body: Vec<Node>, catch_var: String, catch_body: Vec<Node> },
     Throw(Box<Node>), Await(Box<Node>), Spawn(Box<Node>),
@@ -213,6 +216,23 @@ impl Parser {
     fn parse_stmt(&mut self) -> Result<Node, String> {
         match self.cur().kind {
             TokenType::Let => self.parse_let(),
+            TokenType::If if self.peek().value == "let" => {
+                self.advance(); self.advance();
+                let var = self.expect(TokenType::Ident)?.value;
+                self.expect(TokenType::Eq)?;
+                let value = self.parse_expr()?;
+                self.expect(TokenType::LBrace)?;
+                let body = self.parse_block()?;
+                self.expect(TokenType::RBrace)?;
+                let else_body = if self.cur().kind == TokenType::Else {
+                    self.advance();
+                    self.expect(TokenType::LBrace)?;
+                    let b = self.parse_block()?;
+                    self.expect(TokenType::RBrace)?;
+                    Some(b)
+                } else { None };
+                Ok(Node::IfLet { var, value: Box::new(value), body, else_body })
+            }
             TokenType::Return => { self.advance(); Ok(Node::Return(Box::new(self.parse_expr()?))) }
             TokenType::If => self.parse_if(),
             TokenType::While => self.parse_while(),
@@ -499,6 +519,17 @@ impl Parser {
                     }
                     self.expect(TokenType::RBrace)?; return Ok(Node::StructInit { name, fields: pairs });
                 }
+                if self.cur().kind == TokenType::Colon2 {
+                    self.advance();
+                    let variant = self.expect(TokenType::Ident)?.value;
+                    if self.cur().kind == TokenType::LParen {
+                        self.advance();
+                        let args = self.parse_args()?;
+                        self.expect(TokenType::RParen)?;
+                        return Ok(Node::EnumVariantInit { enum_name: name, variant, args });
+                    }
+                    return Ok(Node::EnumVariantInit { enum_name: name, variant, args: vec![] });
+                }
                 Ok(Node::Ident(name))
             }
             TokenType::LBracket => {
@@ -526,7 +557,17 @@ impl Parser {
 
     fn parse_args(&mut self) -> Result<Vec<Node>, String> {
         let mut args = Vec::new();
-        while self.cur().kind != TokenType::RParen { args.push(self.parse_expr()?); if self.cur().kind == TokenType::Comma { self.advance(); } }
+        while self.cur().kind != TokenType::RParen {
+            if self.cur().kind == TokenType::Ident && self.peek().kind == TokenType::Colon {
+                let name = self.advance().value;
+                self.advance();
+                let value = self.parse_expr()?;
+                args.push(Node::NamedArg { name, value: Box::new(value) });
+            } else {
+                args.push(self.parse_expr()?);
+            }
+            if self.cur().kind == TokenType::Comma { self.advance(); }
+        }
         Ok(args)
     }
 }

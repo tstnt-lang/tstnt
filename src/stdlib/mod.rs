@@ -39,6 +39,10 @@ pub mod dns;
 pub mod signal2;
 pub mod pack;
 pub mod math3;
+pub mod ws;
+pub mod template;
+pub mod zip3;
+pub mod img;
 pub mod http_server;
 pub mod sql;
 pub mod tui2;
@@ -105,6 +109,10 @@ pub fn call(module: &str, func: &str, args: Vec<Value>) -> Result<Value, String>
         "pack" => pack::call(func, args),
         "math3" => math3::call(func, args),
         "server" | "http_server" => http_server::call(func, args),
+        "ws" | "websocket" => ws::call(func, args),
+        "template" => template::call(func, args),
+        "zip3" | "zipper" => zip3::call(func, args),
+        "img" | "image" => img::call(func, args),
         "sql" => sql::call(func, args),
         "tui2" => tui2::call(func, args),
         "result" => result::call(func, args),

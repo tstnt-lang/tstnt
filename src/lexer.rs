@@ -62,7 +62,20 @@ impl Lexer {
             let Some(c) = self.cur() else { break };
             let line = self.line;
             if c == '#' { self.skip_comment(); continue; }
-            if c == '"' { let s = self.read_string(); tokens.push(Token { kind: TokenType::Str, value: s, line }); continue; }
+            if c == '"' {
+                if self.peek() == Some('"') && self.peek2() == Some('"') {
+                    self.advance(); self.advance(); self.advance();
+                    let mut s = String::new();
+                    loop {
+                        if self.cur() == Some('"') && self.peek() == Some('"') && self.peek2() == Some('"') {
+                            self.advance(); self.advance(); self.advance(); break;
+                        }
+                        match self.cur() { Some(_) => { s.push(self.advance()); } None => break }
+                    }
+                    tokens.push(Token { kind: TokenType::Str, value: s, line }); continue;
+                }
+                let s = self.read_string(); tokens.push(Token { kind: TokenType::Str, value: s, line }); continue;
+            }
             if c.is_ascii_digit() { let (s, f) = self.read_number(); tokens.push(Token { kind: if f { TokenType::Float } else { TokenType::Number }, value: s, line }); continue; }
             if c.is_alphabetic() || c == '_' {
                 let s = self.read_ident();

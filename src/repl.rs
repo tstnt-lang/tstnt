@@ -6,7 +6,7 @@ use crate::interpreter::Interpreter;
 pub fn run() {
     let mut interp = Interpreter::new();
     let mut history: Vec<String> = Vec::new();
-    println!("TSTNT REPL v1.0.5  (exit/quit to leave, .history to show history)");
+    println!("TSTNT REPL v1.1.0  (exit/quit to leave, .history to show history)");
     loop {
         print!(">> ");
         io::stdout().flush().unwrap();

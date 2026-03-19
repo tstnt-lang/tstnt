@@ -78,6 +78,12 @@ impl Interpreter {
                         _ => { self.run(std::slice::from_ref(target))?; }
                     }
                 }
+                Node::EnumDef { name, variants } => {
+                    for v in variants {
+                        let ev = Value::EnumVariant(name.clone(), v.clone(), vec![]);
+                        self.set_local(v, ev);
+                    }
+                }
                 Node::Use(pkg) => {
                     // Пакет из ~/.tstnt/packages/<pkg>/main.tstnt
                     let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
@@ -130,6 +136,23 @@ impl Interpreter {
     fn exec(&mut self, node: &Node) -> Result<Option<Signal>, String> {
         if self.debug { eprintln!("[dbg] {:?}", std::mem::discriminant(node)); }
         match node {
+            Node::EnumVariantInit { .. } => { self.eval(node)?; Ok(None) }
+            Node::IfLet { var, value, body, else_body } => {
+                let val = self.eval(value)?;
+                if !matches!(val, Value::Null) {
+                    self.push_scope();
+                    self.set_local(var, val);
+                    let r = self.exec_block(body)?;
+                    self.pop_scope();
+                    if let Some(sig) = r { return Ok(Some(sig)); }
+                } else if let Some(eb) = else_body {
+                    self.push_scope();
+                    let r = self.exec_block(eb)?;
+                    self.pop_scope();
+                    if let Some(sig) = r { return Ok(Some(sig)); }
+                }
+                Ok(None)
+            }
             Node::Assign { name, value, .. } => { let val = self.eval(value)?; self.set(name, val); Ok(None) }
             Node::AssignOp { name, op, value } => {
                 let cur = self.get(name).unwrap_or(Value::Int(0));
@@ -326,6 +349,17 @@ impl Interpreter {
                 match &obj_val {
                     Value::Str(_) => stdlib::call("strings", &method, all_args),
                     Value::Array(_) => stdlib::call("arr", &method, all_args),
+                    Value::EnumVariant(en, vn, _) => {
+                        let type_name = format!("{}::{}", en, vn);
+                        if let Some(m) = self.impls.get(&type_name).and_then(|ms| ms.get(&method)).cloned() {
+                            let (params, body) = m;
+                            self.push_scope(); self.set_local("self", obj_val);
+                            for ((pname, _), val) in params.iter().zip(all_args.iter().skip(1)) { self.set_local(pname, val.clone()); }
+                            let result = self.exec_block(&body)?; self.pop_scope();
+                            return Ok(match result { Some(Signal::Return(v)) => v, _ => Value::Null });
+                        }
+                        stdlib::call(&en, &method, all_args)
+                    }
                     Value::Struct(type_name, _) => {
                         let type_name = type_name.clone();
                         if let Some(m) = self.impls.get(&type_name).and_then(|ms| ms.get(&method)).cloned() {
@@ -389,6 +423,26 @@ impl Interpreter {
                 Ok(Value::Array(vals))
             }
             Node::Tuple(elements) => { let vals: Vec<Value> = elements.iter().map(|e| self.eval(e)).collect::<Result<_, _>>()?; Ok(Value::Tuple(vals)) }
+            Node::EnumVariantInit { enum_name, variant, args } => {
+                let vals: Vec<Value> = args.iter().map(|a| self.eval(a)).collect::<Result<_,_>>()?;
+                Ok(Value::EnumVariant(enum_name.clone(), variant.clone(), vals))
+            }
+            Node::NamedArg { value, .. } => self.eval(value),
+            Node::IfLet { var, value, body, else_body } => {
+                let val = self.eval(value)?;
+                if !matches!(val, Value::Null) {
+                    self.push_scope();
+                    self.set_local(var, val);
+                    let r = self.exec_block(body)?;
+                    self.pop_scope();
+                    if let Some(sig) = r { return Ok(Value::Null); }
+                } else if let Some(eb) = else_body {
+                    self.push_scope();
+                    self.exec_block(eb)?;
+                    self.pop_scope();
+                }
+                Ok(Value::Null)
+            }
             Node::StructInit { name, fields } => {
                 let mut map = HashMap::new();
                 for (fname, fval) in fields { map.insert(fname.clone(), self.eval(fval)?); }

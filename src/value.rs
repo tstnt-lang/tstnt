@@ -7,6 +7,7 @@ pub enum Value {
     Int(i64), Float(f64), Str(String), Bool(bool),
     Array(Vec<Value>), Tuple(Vec<Value>),
     Struct(String, HashMap<String, Value>),
+    EnumVariant(String, String, Vec<Value>),
     Lambda(Vec<String>, Node),
     Null,
 }
@@ -23,6 +24,10 @@ impl fmt::Display for Value {
             Value::Array(a) => { write!(f, "[")?; for (i, v) in a.iter().enumerate() { if i > 0 { write!(f, ", ")?; } write!(f, "{}", v)?; } write!(f, "]") }
             Value::Tuple(t) => { write!(f, "(")?; for (i, v) in t.iter().enumerate() { if i > 0 { write!(f, ", ")?; } write!(f, "{}", v)?; } write!(f, ")") }
             Value::Struct(name, fields) => { write!(f, "{} {{", name)?; for (i, (k, v)) in fields.iter().enumerate() { if i > 0 { write!(f, ", ")?; } write!(f, "{}: {}", k, v)?; } write!(f, "}}") }
+            Value::EnumVariant(enum_name, variant, data) => {
+                if data.is_empty() { write!(f, "{}::{}", enum_name, variant) }
+                else { write!(f, "{}::{}({})", enum_name, variant, data.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(", ")) }
+            }
         }
     }
 }
