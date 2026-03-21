@@ -28,30 +28,13 @@ fn run_file(path: &str, test_mode: bool, debug: bool) {
     let src = match fs::read_to_string(path) {
         Ok(s) => s, Err(e) => { eprintln!("\x1b[31merror\x1b[0m: {}", e); std::process::exit(1); }
     };
-    let cache_path = path.replace(".tstnt", ".tst_cache");
-    let src_meta = fs::metadata(path).ok();
-    let cache_meta = fs::metadata(&cache_path).ok();
-    let use_cache = if let (Some(sm), Some(cm)) = (&src_meta, &cache_meta) {
-        cm.modified().ok() > sm.modified().ok()
-    } else { false };
-    let ast = if use_cache && !debug {
-        let bytes = fs::read(&cache_path).unwrap_or_default();
-        let src2 = String::from_utf8_lossy(&bytes).to_string();
-        let tokens = Lexer::new(&src2).tokenize();
-        match Parser::new(tokens).parse() {
-            Ok(a) => a,
-            Err(_) => {
-                let tokens = Lexer::new(&src).tokenize();
-                match Parser::new(tokens).parse() { Ok(a) => a, Err(e) => { pretty_error(&src, &e); std::process::exit(1); } }
-            }
-        }
-    } else {
-        let tokens = Lexer::new(&src).tokenize();
-        match Parser::new(tokens).parse() {
-            Ok(a) => { fs::write(&cache_path, &src).ok(); a }
-            Err(e) => { pretty_error(&src, &e); std::process::exit(1); }
-        }
+    let tokens = Lexer::new(&src).tokenize();
+    let ast = match Parser::new(tokens).parse() {
+        Ok(a) => a, Err(e) => { pretty_error(&src, &e); std::process::exit(1); }
     };
+    if !test_mode && !debug {
+        if let Ok(()) = vm::run_from_ast(&ast) { return; }
+    }
     let mut interp = Interpreter::new();
     interp.debug = debug;
     let result = if test_mode { interp.run_tests(&ast) } else { interp.run(&ast) };
@@ -86,10 +69,16 @@ fn main() {
                 let ast = match Parser::new(tokens).parse() {
                     Ok(a) => a, Err(e) => { pretty_error(&src, &e); std::process::exit(1); }
                 };
+                let use_vm = vm::run_from_ast(&ast).is_ok();
+                if use_vm { println!("\x1b[90musing VM\x1b[0m"); } else { println!("\x1b[90musing interpreter\x1b[0m"); }
                 let start = std::time::Instant::now();
                 for _ in 0..n {
-                    let mut interp = Interpreter::new();
-                    let _ = interp.run(&ast);
+                    if use_vm {
+                        let _ = vm::run_from_ast(&ast);
+                    } else {
+                        let mut interp = Interpreter::new();
+                        let _ = interp.run(&ast);
+                    }
                 }
                 let elapsed = start.elapsed().as_millis();
                 println!("\x1b[32m{}\x1b[0m runs in \x1b[33m{}ms\x1b[0m total, \x1b[33m{}ms\x1b[0m avg",
@@ -203,7 +192,7 @@ fn main() {
             println!(r"   | |  \__ \  | |  | .` | | |  ");
             println!(r"   |_|  |___/  |_|  |_|\_| |_|  ");
             println!("[0m");
-            println!("  v1.1.0  [90m— The TSTNT Language[0m");
+            println!("  v1.5.0  [90m— The TSTNT Language[0m");
             println!("  [90mgithub.com/tstnt-lang[0m
 ");
         }

@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Arc as Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use crate::parser::{Node, MatchPattern, InterpPart};
 use crate::value::Value;
@@ -7,9 +8,10 @@ use crate::stdlib;
 pub enum Signal { Return(Value), Break, Continue, Throw(String) }
 
 pub struct Interpreter {
-    env: Vec<HashMap<String, Value>>,
-    pub functions: HashMap<String, (Vec<(String, String)>, Vec<Node>, bool)>,
-    pub impls: HashMap<String, HashMap<String, (Vec<(String, String)>, Vec<Node>)>>,
+    env: Vec<(String, Value)>,
+    scope_stack: Vec<usize>,
+    pub functions: HashMap<String, (Vec<(String, String)>, Rc<Vec<Node>>, bool)>,
+    pub impls: HashMap<String, HashMap<String, (Vec<(String, String)>, Rc<Vec<Node>>)>>,
     pub test_results: Vec<(String, bool, String)>,
     pub debug: bool,
     cache_store: HashMap<String, Value>,
@@ -19,26 +21,37 @@ pub struct Interpreter {
 
 impl Interpreter {
     pub fn new() -> Self {
-        Interpreter { env: vec![HashMap::new()], functions: HashMap::new(), impls: HashMap::new(), test_results: Vec::new(), debug: false, cache_store: HashMap::new(), timer_funcs: std::collections::HashSet::new(), deprecated_funcs: std::collections::HashSet::new() }
+        Interpreter { env: Vec::new(), scope_stack: vec![0], functions: HashMap::new(), impls: HashMap::new(), test_results: Vec::new(), debug: false, cache_store: HashMap::new(), timer_funcs: std::collections::HashSet::new(), deprecated_funcs: std::collections::HashSet::new() }
     }
-    fn push_scope(&mut self) { self.env.push(HashMap::new()); }
-    fn pop_scope(&mut self) { self.env.pop(); }
-    fn get(&self, name: &str) -> Option<Value> { for scope in self.env.iter().rev() { if let Some(v) = scope.get(name) { return Some(v.clone()); } } None }
+    fn push_scope(&mut self) { self.scope_stack.push(self.env.len()); }
+    fn pop_scope(&mut self) {
+        if let Some(base) = self.scope_stack.pop() { self.env.truncate(base); }
+    }
+    fn get(&self, name: &str) -> Option<Value> {
+        for (k, v) in self.env.iter().rev() { if k == name { return Some(v.clone()); } }
+        None
+    }
     fn set(&mut self, name: &str, val: Value) {
-        for scope in self.env.iter_mut().rev() { if scope.contains_key(name) { scope.insert(name.to_string(), val); return; } }
-        if let Some(scope) = self.env.last_mut() { scope.insert(name.to_string(), val); }
+        let base = *self.scope_stack.last().unwrap_or(&0);
+        for (k, v) in self.env[base..].iter_mut().rev() { if k == name { *v = val; return; } }
+        for (k, v) in self.env[..base].iter_mut().rev() { if k == name { *v = val; return; } }
+        self.env.push((name.to_string(), val));
     }
-    fn set_local(&mut self, name: &str, val: Value) { if let Some(scope) = self.env.last_mut() { scope.insert(name.to_string(), val); } }
+    fn set_local(&mut self, name: &str, val: Value) {
+        let base = *self.scope_stack.last().unwrap_or(&0);
+        for (k, v) in self.env[base..].iter_mut().rev() { if k == name { *v = val; return; } }
+        self.env.push((name.to_string(), val));
+    }
     fn truthy(&self, val: &Value) -> bool {
         match val { Value::Bool(b) => *b, Value::Int(n) => *n != 0, Value::Null => false, Value::Str(s) => !s.is_empty(), Value::Array(a) => !a.is_empty(), _ => true }
     }
     pub fn run(&mut self, nodes: &[Node]) -> Result<(), String> {
         for node in nodes {
             match node {
-                Node::FuncDef { name, params, body, is_async, .. } => { self.functions.insert(name.clone(), (params.clone(), body.clone(), *is_async)); }
+                Node::FuncDef { name, params, body, is_async, .. } => { self.functions.insert(name.clone(), (params.clone(), Rc::new(body.clone()), *is_async)); }
                 Node::ImplBlock { target, methods, .. } => {
                     let entry = self.impls.entry(target.clone()).or_default();
-                    for m in methods { if let Node::FuncDef { name, params, body, .. } = m { entry.insert(name.clone(), (params.clone(), body.clone())); } }
+                    for m in methods { if let Node::FuncDef { name, params, body, .. } = m { entry.insert(name.clone(), (params.clone(), Rc::new(body.clone()))); } }
                 }
                 Node::Use(path) if path.starts_with("./") || path.starts_with("/") || path.ends_with(".tstnt") => {
                     let filepath = if path.ends_with(".tstnt") { path.clone() } else { format!("{}.tstnt", path) };
@@ -54,21 +67,21 @@ impl Interpreter {
                         Node::FuncDef { name: fname, params, body, is_async, .. } => {
                             let fname = fname.clone();
                             let params = params.clone();
-                            let body = body.clone();
+                            let body = Rc::new(body.clone());
                             let is_async = *is_async;
                             let dname = name.clone();
                             match dname.as_str() {
                                 "cache" => {
                                     self.cache_store.insert(format!("__cache_registered_{}__", fname), Value::Bool(true));
-                                    self.functions.insert(fname.clone(), (params.clone(), body.clone(), is_async));
+                                    self.functions.insert(fname.clone(), (params.clone(), body, is_async));
                                 }
                                 "timer" => {
                                     self.timer_funcs.insert(fname.clone());
-                                    self.functions.insert(fname.clone(), (params.clone(), body.clone(), is_async));
+                                    self.functions.insert(fname.clone(), (params.clone(), body, is_async));
                                 }
                                 "deprecated" => {
                                     self.deprecated_funcs.insert(fname.clone());
-                                    self.functions.insert(fname.clone(), (params.clone(), body.clone(), is_async));
+                                    self.functions.insert(fname.clone(), (params.clone(), body, is_async));
                                 }
                                 _ => {
                                     self.functions.insert(fname, (params, body, is_async));
@@ -85,7 +98,6 @@ impl Interpreter {
                     }
                 }
                 Node::Use(pkg) => {
-                    // Пакет из ~/.tstnt/packages/<pkg>/main.tstnt
                     let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
                     let pkg_path = format!("{}/.tstnt/packages/{}/main.tstnt", home, pkg);
                     if let Ok(src) = std::fs::read_to_string(&pkg_path) {
@@ -94,7 +106,9 @@ impl Interpreter {
                             self.run(&ast).ok();
                         }
                     }
-                    // stdlib пакеты игнорируем (io, math и т.д.)
+                }
+                Node::Const { name, value, .. } => {
+                    if let Ok(val) = self.eval(value) { self.set_local(name, val); }
                 }
                 _ => {}
             }
@@ -107,10 +121,10 @@ impl Interpreter {
     pub fn run_tests(&mut self, nodes: &[Node]) -> Result<(), String> {
         for node in nodes {
             match node {
-                Node::FuncDef { name, params, body, is_async, .. } => { self.functions.insert(name.clone(), (params.clone(), body.clone(), *is_async)); }
+                Node::FuncDef { name, params, body, is_async, .. } => { self.functions.insert(name.clone(), (params.clone(), Rc::new(body.clone()), *is_async)); }
                 Node::ImplBlock { target, methods, .. } => {
                     let entry = self.impls.entry(target.clone()).or_default();
-                    for m in methods { if let Node::FuncDef { name, params, body, .. } = m { entry.insert(name.clone(), (params.clone(), body.clone())); } }
+                    for m in methods { if let Node::FuncDef { name, params, body, .. } = m { entry.insert(name.clone(), (params.clone(), Rc::new(body.clone()))); } }
                 }
                 Node::TestDef { name, body } => {
                     let name = name.clone(); let body = body.clone();
@@ -153,6 +167,24 @@ impl Interpreter {
                 }
                 Ok(None)
             }
+            Node::Const { name, value, .. } => { let val = self.eval(value)?; self.set_local(name, val); Ok(None) }
+            Node::ForIn { var, iter, body } => {
+                let arr = self.eval(iter)?;
+                let var = var.clone(); let body = body.clone();
+                let items = match arr {
+                    Value::Array(a) => a,
+                    Value::Str(s) => s.chars().map(|c| Value::Str(c.to_string())).collect(),
+                    _ => return Err("for..in: expected array or str".into())
+                };
+                self.push_scope();
+                for item in items {
+                    self.set_local(&var, item);
+                    let r = self.exec_block(&body)?;
+                    match r { Some(Signal::Break) => break, Some(Signal::Continue) => continue, Some(s) => { self.pop_scope(); return Ok(Some(s)); } None => {} }
+                }
+                self.pop_scope();
+                Ok(None)
+            }
             Node::Assign { name, value, .. } => { let val = self.eval(value)?; self.set(name, val); Ok(None) }
             Node::AssignOp { name, op, value } => {
                 let cur = self.get(name).unwrap_or(Value::Int(0));
@@ -173,7 +205,7 @@ impl Interpreter {
             Node::Continue => Ok(Some(Signal::Continue)),
             Node::Throw(val) => { let v = self.eval(val)?; Ok(Some(Signal::Throw(v.to_string()))) }
             Node::Breakpoint => {
-                eprintln!("[breakpoint] env vars: {:?}", self.env.last().map(|s| s.keys().collect::<Vec<_>>()));
+                eprintln!("[breakpoint] env vars: {:?}", Some(self.env.iter().map(|s| s.0.as_str()).collect::<Vec<_>>()));
                 Ok(None)
             }
             Node::If { cond, body, else_body } => {
@@ -183,11 +215,13 @@ impl Interpreter {
                 else { Ok(None) }
             }
             Node::While { cond, body } => {
+                self.push_scope();
                 loop {
                     let c = self.eval(cond)?; if !self.truthy(&c) { break; }
-                    self.push_scope(); let r = self.exec_block(body)?; self.pop_scope();
-                    match r { Some(Signal::Break) => break, Some(Signal::Continue) => continue, Some(s) => return Ok(Some(s)), None => {} }
+                    let r = self.exec_block(body)?;
+                    match r { Some(Signal::Break) => break, Some(Signal::Continue) => continue, Some(s) => { self.pop_scope(); return Ok(Some(s)); } None => {} }
                 }
+                self.pop_scope();
                 Ok(None)
             }
             Node::Loop { var, start, end, body } => {
@@ -195,43 +229,51 @@ impl Interpreter {
                 let var = var.clone(); let body = body.clone();
                 let mut i = match s { Value::Int(n) => n, _ => 0 };
                 let end_i = match e { Value::Int(n) => n, _ => 0 };
+                self.push_scope();
                 while i < end_i {
-                    self.push_scope(); self.set_local(&var, Value::Int(i));
-                    let r = self.exec_block(&body)?; self.pop_scope();
-                    match r { Some(Signal::Break) => break, Some(Signal::Continue) => { i += 1; continue; } Some(s) => return Ok(Some(s)), None => {} }
+                    self.set_local(&var, Value::Int(i));
+                    let r = self.exec_block(&body)?;
+                    match r { Some(Signal::Break) => break, Some(Signal::Continue) => { i += 1; continue; } Some(s) => { self.pop_scope(); return Ok(Some(s)); } None => {} }
                     i += 1;
                 }
+                self.pop_scope();
                 Ok(None)
             }
             Node::LoopEnum { idx, var, iter, body } => {
                 let arr = self.eval(iter)?;
                 let idx = idx.clone(); let var = var.clone(); let body = body.clone();
                 let items = match arr { Value::Array(a) => a, Value::Str(s) => s.chars().map(|c| Value::Str(c.to_string())).collect(), _ => return Err("loop in: expected array".into()) };
+                self.push_scope();
                 for (i, item) in items.into_iter().enumerate() {
-                    self.push_scope(); self.set_local(&idx, Value::Int(i as i64)); self.set_local(&var, item);
-                    let r = self.exec_block(&body)?; self.pop_scope();
-                    match r { Some(Signal::Break) => break, Some(Signal::Continue) => continue, Some(s) => return Ok(Some(s)), None => {} }
+                    self.set_local(&idx, Value::Int(i as i64)); self.set_local(&var, item);
+                    let r = self.exec_block(&body)?;
+                    match r { Some(Signal::Break) => break, Some(Signal::Continue) => continue, Some(s) => { self.pop_scope(); return Ok(Some(s)); } None => {} }
                 }
+                self.pop_scope();
                 Ok(None)
             }
             Node::LoopIn { var, iter, body } => {
                 let arr = self.eval(iter)?;
                 let var = var.clone(); let body = body.clone();
                 let items = match arr { Value::Array(a) => a, Value::Str(s) => s.chars().map(|c| Value::Str(c.to_string())).collect(), _ => return Err("loop in: expected array".into()) };
+                self.push_scope();
                 for item in items {
-                    self.push_scope(); self.set_local(&var, item);
-                    let r = self.exec_block(&body)?; self.pop_scope();
-                    match r { Some(Signal::Break) => break, Some(Signal::Continue) => continue, Some(s) => return Ok(Some(s)), None => {} }
+                    self.set_local(&var, item);
+                    let r = self.exec_block(&body)?;
+                    match r { Some(Signal::Break) => break, Some(Signal::Continue) => continue, Some(s) => { self.pop_scope(); return Ok(Some(s)); } None => {} }
                 }
+                self.pop_scope();
                 Ok(None)
             }
             Node::Repeat { count, body } => {
                 let n = match self.eval(count)? { Value::Int(n) => n, _ => 0 };
                 let body = body.clone();
+                self.push_scope();
                 for _ in 0..n {
-                    self.push_scope(); let r = self.exec_block(&body)?; self.pop_scope();
-                    match r { Some(Signal::Break) => break, Some(Signal::Continue) => continue, Some(s) => return Ok(Some(s)), None => {} }
+                    let r = self.exec_block(&body)?;
+                    match r { Some(Signal::Break) => break, Some(Signal::Continue) => continue, Some(s) => { self.pop_scope(); return Ok(Some(s)); } None => {} }
                 }
+                self.pop_scope();
                 Ok(None)
             }
             Node::Match { expr, arms } => {
@@ -353,9 +395,11 @@ impl Interpreter {
                         let type_name = format!("{}::{}", en, vn);
                         if let Some(m) = self.impls.get(&type_name).and_then(|ms| ms.get(&method)).cloned() {
                             let (params, body) = m;
-                            self.push_scope(); self.set_local("self", obj_val);
+                            let saved_len = self.env.len(); let saved_scopes_len = self.scope_stack.len(); self.scope_stack.push(self.env.len());
+                            self.set_local("self", obj_val);
                             for ((pname, _), val) in params.iter().zip(all_args.iter().skip(1)) { self.set_local(pname, val.clone()); }
-                            let result = self.exec_block(&body)?; self.pop_scope();
+                            let result = self.exec_block(&body)?;
+                            self.env.truncate(saved_len); self.scope_stack.truncate(saved_scopes_len);
                             return Ok(match result { Some(Signal::Return(v)) => v, _ => Value::Null });
                         }
                         stdlib::call(&en, &method, all_args)
@@ -364,9 +408,11 @@ impl Interpreter {
                         let type_name = type_name.clone();
                         if let Some(m) = self.impls.get(&type_name).and_then(|ms| ms.get(&method)).cloned() {
                             let (params, body) = m;
-                            self.push_scope(); self.set_local("self", obj_val);
+                            let saved_len = self.env.len(); let saved_scopes_len = self.scope_stack.len(); self.scope_stack.push(self.env.len());
+                            self.set_local("self", obj_val);
                             for ((pname, _), val) in params.iter().zip(all_args.iter().skip(1)) { self.set_local(pname, val.clone()); }
-                            let result = self.exec_block(&body)?; self.pop_scope();
+                            let result = self.exec_block(&body)?;
+                            self.env.truncate(saved_len); self.scope_stack.truncate(saved_scopes_len);
                             return Ok(match result { Some(Signal::Return(v)) => v, _ => Value::Null });
                         }
                         Err(format!("No method {} on {}", method, type_name))
@@ -504,25 +550,27 @@ impl Interpreter {
         match name {
             "print" => {
                 let msg = args.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(" ");
-                // Пасхалки
                 match msg.as_str() {
-                    "hello world" | "Hello, World!" => { println!("{}  [90m<-- your first TSTNT program![0m", msg); }
-                    "42" => { println!("42  [90m<-- the answer to everything[0m"); }
-                    "tstnt" | "TSTNT" => { println!("[36mTSTNT[0m [90m<-- that's us! github.com/tstnt-lang[0m"); }
+                    "hello world" | "Hello, World!" => { println!("{}  \x1b[90m<-- your first TSTNT program!\x1b[0m", msg); }
+                    "42" => { println!("42  \x1b[90m<-- the answer to everything\x1b[0m"); }
+                    "tstnt" | "TSTNT" => { println!("\x1b[36mTSTNT\x1b[0m \x1b[90m<-- that's us! github.com/tstnt-lang\x1b[0m"); }
                     "meow" | "мяу" | "nyan" => { println!("🐱 purrr~ meow~"); }
-                    "sudo" => { println!("[31mnice try[0m"); }
-                    "rm -rf /" | "del /f /s /q c:\\" => { println!("[31mnice try... very nice try[0m"); }
+                    "sudo" => { println!("\x1b[31mnice try\x1b[0m"); }
+                    "rm -rf /" | "del /f /s /q c:\\" => { println!("\x1b[31mnice try... very nice try\x1b[0m"); }
                     "woof" | "гав" => { println!("🐶 woof!"); }
                     "why" | "почему" => { println!("because it's fun 🐉"); }
                     "who made you" | "кто тебя создал" => { println!("A developer on Android with Rust and ☕"); }
-                    "1337" | "leet" => { println!("[32ml33t h4x0r d3t3ct3d[0m"); }
-                    "todo" => { println!("[33m// TODO: add more easter eggs[0m"); }
-                    "null" => { println!("[90mnull pointer goes brrr[0m"); }
+                    "1337" | "leet" => { println!("\x1b[32ml33t h4x0r d3t3ct3d\x1b[0m"); }
+                    "todo" => { println!("\x1b[33m// TODO: add more easter eggs\x1b[0m"); }
+                    "null" => { println!("\x1b[90mnull pointer goes brrr\x1b[0m"); }
                     "recursion" => { println!("recursion: see 'recursion'"); }
                     "nan" => { println!("NaN + NaN = still NaN 🤔"); }
                     "coffee" | "кофе" => { println!("☕ fueling the language..."); }
-                    "gg" | "gg ez" => { println!("[32mgg[0m [90m// game good[0m"); }
-                    "ok boomer" => { println!("[90m// this syntax was invented in 2024[0m"); }
+                    "gg" | "gg ez" => { println!("\x1b[32mgg\x1b[0m \x1b[90m// game good\x1b[0m"); }
+                    "ok boomer" => { println!("\x1b[90m// this syntax was invented in 2024\x1b[0m"); }
+                    "v1.5.0" | "1.5.0" => { println!("\x1b[36mv1.5.0\x1b[0m \x1b[90m— the big one\x1b[0m"); }
+                    "help" => { println!("\x1b[33mtstnt <file>\x1b[0m  run a file\n\x1b[33mtstnt repl\x1b[0m    start REPL\n\x1b[33mtstnt --version\x1b[0m  show version"); }
+                    "bench" | "benchmark" => { println!("\x1b[36muse: tstnt bench <file> [runs]\x1b[0m"); }
                     _ => { println!("{}", msg); }
                 }
                 Ok(Value::Null)
@@ -794,6 +842,100 @@ impl Interpreter {
                 }
                 _ => Err("slice: (array|str, from, to)".into())
             }
+            "min_by" => match (args.first(), args.get(1)) {
+                (Some(Value::Array(arr)), Some(Value::Lambda(params, body))) => {
+                    let arr = arr.clone(); let params = params.clone(); let body = body.clone();
+                    if arr.is_empty() { return Ok(Value::Null); }
+                    let mut best = arr[0].clone();
+                    let mut best_val = { self.push_scope(); if let Some(p) = params.first() { self.set_local(p, best.clone()); } let v = self.eval(&body)?; self.pop_scope(); v };
+                    for item in arr.iter().skip(1) {
+                        self.push_scope();
+                        if let Some(p) = params.first() { self.set_local(p, item.clone()); }
+                        let v = self.eval(&body)?;
+                        self.pop_scope();
+                        if let (Value::Int(a), Value::Int(b)) = (&v, &best_val) { if a < b { best = item.clone(); best_val = v; } }
+                        else if let (Value::Float(a), Value::Float(b)) = (&v, &best_val) { if a < b { best = item.clone(); best_val = v; } }
+                    }
+                    Ok(best)
+                }
+                _ => Err("min_by: (array, lambda)".into())
+            }
+            "max_by" => match (args.first(), args.get(1)) {
+                (Some(Value::Array(arr)), Some(Value::Lambda(params, body))) => {
+                    let arr = arr.clone(); let params = params.clone(); let body = body.clone();
+                    if arr.is_empty() { return Ok(Value::Null); }
+                    let mut best = arr[0].clone();
+                    let mut best_val = { self.push_scope(); if let Some(p) = params.first() { self.set_local(p, best.clone()); } let v = self.eval(&body)?; self.pop_scope(); v };
+                    for item in arr.iter().skip(1) {
+                        self.push_scope();
+                        if let Some(p) = params.first() { self.set_local(p, item.clone()); }
+                        let v = self.eval(&body)?;
+                        self.pop_scope();
+                        if let (Value::Int(a), Value::Int(b)) = (&v, &best_val) { if a > b { best = item.clone(); best_val = v; } }
+                        else if let (Value::Float(a), Value::Float(b)) = (&v, &best_val) { if a > b { best = item.clone(); best_val = v; } }
+                    }
+                    Ok(best)
+                }
+                _ => Err("max_by: (array, lambda)".into())
+            }
+            "partition" => match (args.first(), args.get(1)) {
+                (Some(Value::Array(arr)), Some(Value::Lambda(params, body))) => {
+                    let arr = arr.clone(); let params = params.clone(); let body = body.clone();
+                    let mut yes = Vec::new(); let mut no = Vec::new();
+                    for item in arr {
+                        self.push_scope();
+                        if let Some(p) = params.first() { self.set_local(p, item.clone()); }
+                        let v = self.eval(&body)?;
+                        self.pop_scope();
+                        if self.truthy(&v) { yes.push(item); } else { no.push(item); }
+                    }
+                    Ok(Value::Tuple(vec![Value::Array(yes), Value::Array(no)]))
+                }
+                _ => Err("partition: (array, lambda)".into())
+            }
+            "tally" => match args.first() {
+                Some(Value::Array(arr)) => {
+                    let mut counts: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
+                    for item in arr { *counts.entry(item.to_string()).or_insert(0) += 1; }
+                    let mut result = Vec::new();
+                    for (k, v) in counts { result.push(Value::Tuple(vec![Value::Str(k), Value::Int(v)])); }
+                    Ok(Value::Array(result))
+                }
+                _ => Err("tally: array".into())
+            }
+            "zip_with" => match (args.first(), args.get(1), args.get(2)) {
+                (Some(Value::Array(a)), Some(Value::Array(b)), Some(Value::Lambda(params, body))) => {
+                    let a = a.clone(); let b = b.clone(); let params = params.clone(); let body = body.clone();
+                    let mut result = Vec::new();
+                    for (x, y) in a.iter().zip(b.iter()) {
+                        self.push_scope();
+                        if let Some(p) = params.first() { self.set_local(p, x.clone()); }
+                        if let Some(p) = params.get(1) { self.set_local(p, y.clone()); }
+                        let v = self.eval(&body)?;
+                        self.pop_scope();
+                        result.push(v);
+                    }
+                    Ok(Value::Array(result))
+                }
+                _ => Err("zip_with: (array, array, lambda)".into())
+            }
+            "scan" => match (args.first(), args.get(1), args.get(2)) {
+                (Some(Value::Array(arr)), Some(Value::Lambda(params, body)), Some(init)) => {
+                    let arr = arr.clone(); let params = params.clone(); let body = body.clone();
+                    let mut acc = init.clone();
+                    let mut result = vec![acc.clone()];
+                    for item in arr {
+                        self.push_scope();
+                        if let Some(p) = params.first() { self.set_local(p, acc.clone()); }
+                        if let Some(p) = params.get(1) { self.set_local(p, item); }
+                        acc = self.eval(&body)?;
+                        self.pop_scope();
+                        result.push(acc.clone());
+                    }
+                    Ok(Value::Array(result))
+                }
+                _ => Err("scan: (array, lambda, init)".into())
+            }
             "sprintf" => {
                 let template = match args.first() { Some(Value::Str(s)) => s.clone(), _ => return Err("sprintf: (template, ...)".into()) };
                 let mut result = template.clone();
@@ -807,7 +949,7 @@ impl Interpreter {
                     for (p, v) in params.iter().zip(args.iter()) { self.set_local(p, v.clone()); }
                     let v = self.eval(&body)?; self.pop_scope(); return Ok(v);
                 }
-                if let Some((params, body, _)) = self.functions.get(name).cloned() {
+                if let Some((params, body, _)) = self.functions.get(name).map(|(p,b,a)| (p.clone(),b.clone(),*a)) {
                     if self.deprecated_funcs.contains(name) {
                         eprintln!("\x1b[33mwarning\x1b[0m: '{}' is deprecated", name);
                     }
@@ -817,9 +959,10 @@ impl Interpreter {
                         if let Some(cached) = self.cache_store.get(&cache_key).cloned() {
                             return Ok(cached);
                         }
-                        self.push_scope();
+                        let saved_len = self.env.len(); let saved_scopes_len = self.scope_stack.len(); self.scope_stack.push(self.env.len());
                         for ((pname, _), val) in params.iter().zip(args.iter()) { self.set_local(pname, val.clone()); }
-                        let result = self.exec_block(&body)?; self.pop_scope();
+                        let result = self.exec_block(&body)?;
+                        self.env.truncate(saved_len); self.scope_stack.truncate(saved_scopes_len);
                         let val = match result { Some(Signal::Return(v)) => v, _ => Value::Null };
                         self.cache_store.insert(cache_key, val.clone());
                         return Ok(val);
@@ -828,9 +971,10 @@ impl Interpreter {
                     let start = if is_timed {
                         SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
                     } else { 0 };
-                    self.push_scope();
+                    let saved_len = self.env.len(); let saved_scopes_len = self.scope_stack.len(); self.scope_stack.push(self.env.len());
                     for ((pname, _), val) in params.iter().zip(args.iter()) { self.set_local(pname, val.clone()); }
-                    let result = self.exec_block(&body)?; self.pop_scope();
+                    let result = self.exec_block(&body)?;
+                    self.env.truncate(saved_len); self.scope_stack.truncate(saved_scopes_len);
                     if is_timed {
                         let elapsed = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0) - start;
                         eprintln!("\x1b[36m@timer\x1b[0m: {}() took {}ms", name, elapsed);

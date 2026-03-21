@@ -45,6 +45,9 @@ pub enum Node {
     In { value: Box<Node>, container: Box<Node> },
     Breakpoint,
     Decorator { name: String, target: Box<Node> },
+    Const { name: String, type_ann: Option<String>, value: Box<Node> },
+    ForIn { var: String, iter: Box<Node>, body: Vec<Node> },
+    FuncDefDefault { name: String, params: Vec<(String, String, Option<Node>)>, ret: Option<String>, body: Vec<Node>, is_async: bool },
 }
 
 #[derive(Debug, Clone)]
@@ -81,6 +84,8 @@ impl Parser {
             return Ok(Node::Decorator { name, target: Box::new(target) });
         }
         match self.cur().kind {
+            TokenType::Const => self.parse_const(),
+            TokenType::For => self.parse_for(),
             TokenType::Use => self.parse_use(),
             TokenType::Mod => { self.advance(); Ok(Node::Mod(self.expect(TokenType::Ident)?.value)) }
             TokenType::Do | TokenType::Async => self.parse_func(),
@@ -123,7 +128,12 @@ impl Parser {
             while self.cur().kind != TokenType::RParen {
                 let pname = self.expect(TokenType::Ident)?.value;
                 self.expect(TokenType::Colon)?;
-                params.push((pname, self.parse_type()?));
+                let ptype = self.parse_type()?;
+                if self.cur().kind == TokenType::Eq {
+                    self.advance();
+                    let _default = self.parse_expr()?;
+                }
+                params.push((pname, ptype));
                 if self.cur().kind == TokenType::Comma { self.advance(); }
             }
             self.expect(TokenType::RParen)?;
@@ -553,6 +563,26 @@ impl Parser {
             TokenType::Thread | TokenType::Async | TokenType::Await => { self.advance(); Ok(val) }
             _ => Err(format!("Line {}: expected Ident, got {:?}", self.cur().line, val))
         }
+    }
+
+    fn parse_const(&mut self) -> Result<Node, String> {
+        self.advance();
+        let name = self.expect(TokenType::Ident)?.value;
+        let type_ann = if self.cur().kind == TokenType::Colon { self.advance(); Some(self.parse_type()?) } else { None };
+        self.expect(TokenType::Eq)?;
+        let value = self.parse_expr()?;
+        Ok(Node::Const { name, type_ann, value: Box::new(value) })
+    }
+
+    fn parse_for(&mut self) -> Result<Node, String> {
+        self.advance();
+        let var = self.expect(TokenType::Ident)?.value;
+        self.expect(TokenType::In)?;
+        let iter = self.parse_expr()?;
+        self.expect(TokenType::LBrace)?;
+        let body = self.parse_block()?;
+        self.expect(TokenType::RBrace)?;
+        Ok(Node::ForIn { var, iter: Box::new(iter), body })
     }
 
     fn parse_args(&mut self) -> Result<Vec<Node>, String> {

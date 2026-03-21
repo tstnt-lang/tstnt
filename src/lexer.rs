@@ -1,7 +1,7 @@
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
     Number, Float, Str, Bool, Ident,
-    Do, Let, Mut, Return, If, Else, While, Loop, Match, Use, Mod, Struct, Unit, Enum, In,
+    Do, Let, Mut, Const, Return, If, Else, While, Loop, For, Match, Use, Mod, From, Struct, Unit, Enum, In,
     Break, Continue, Try, Catch, Throw,
     Async, Await, Thread, Chan, Send, Recv,
     Interface, Impl, Test,
@@ -93,6 +93,9 @@ impl Lexer {
                     "interface" => TokenType::Interface, "impl" => TokenType::Impl,
                     "test" => TokenType::Test, "null" => TokenType::Null,
                     "repeat" => TokenType::Repeat,
+                    "for" => TokenType::For,
+                    "const" => TokenType::Const,
+                    "from" => TokenType::From,
                     "true" | "false" => TokenType::Bool, "_" => TokenType::Underscore,
                     _ => TokenType::Ident,
                 };

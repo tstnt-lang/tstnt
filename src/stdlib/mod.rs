@@ -48,6 +48,9 @@ pub mod sql;
 pub mod tui2;
 pub mod result;
 pub mod fmt2;
+pub mod iter;
+pub mod bytes;
+pub mod reflect;
 
 pub fn call(module: &str, func: &str, args: Vec<Value>) -> Result<Value, String> {
     match module {
@@ -117,6 +120,9 @@ pub fn call(module: &str, func: &str, args: Vec<Value>) -> Result<Value, String>
         "tui2" => tui2::call(func, args),
         "result" => result::call(func, args),
         "fmt2" => fmt2::call(func, args),
+        "iter" => iter::call(func, args),
+        "bytes" => bytes::call(func, args),
+        "reflect" => reflect::call(func, args),
         _ => Err(format!("{}.{}: unknown module", module, func))
     }
 }
