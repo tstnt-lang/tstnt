@@ -39,22 +39,39 @@ impl JitCache {
 }
 
 mod platform {
-    #[cfg(target_arch = "aarch64")]
+    #[cfg(all(target_arch = "aarch64", not(target_os = "windows")))]
     pub unsafe fn alloc_exec(size: usize) -> *mut u8 {
         extern "C" { fn mmap(addr: *mut u8, len: usize, prot: i32, flags: i32, fd: i32, offset: i64) -> *mut u8; }
         let ptr = mmap(std::ptr::null_mut(), size, 3, 0x22, -1, 0);
         if ptr as isize == -1 { std::ptr::null_mut() } else { ptr }
     }
-    #[cfg(target_arch = "aarch64")]
+    #[cfg(all(target_arch = "aarch64", not(target_os = "windows")))]
     pub unsafe fn make_exec(ptr: *mut u8, size: usize) {
         extern "C" { fn mprotect(addr: *mut u8, len: usize, prot: i32) -> i32; }
         mprotect(ptr, size, 5);
     }
-    #[cfg(target_arch = "aarch64")]
+    #[cfg(all(target_arch = "aarch64", not(target_os = "windows")))]
     pub unsafe fn free_exec(ptr: *mut u8, size: usize) {
         extern "C" { fn munmap(addr: *mut u8, len: usize) -> i32; }
         munmap(ptr, size);
     }
+
+    #[cfg(all(target_arch = "aarch64", target_os = "windows"))]
+    pub unsafe fn alloc_exec(size: usize) -> *mut u8 {
+        extern "system" {
+            fn VirtualAlloc(addr: *mut u8, size: usize, alloc_type: u32, protect: u32) -> *mut u8;
+        }
+        let ptr = VirtualAlloc(std::ptr::null_mut(), size, 0x3000, 0x40);
+        if ptr.is_null() { std::ptr::null_mut() } else { ptr }
+    }
+    #[cfg(all(target_arch = "aarch64", target_os = "windows"))]
+    pub unsafe fn make_exec(_ptr: *mut u8, _size: usize) {}
+    #[cfg(all(target_arch = "aarch64", target_os = "windows"))]
+    pub unsafe fn free_exec(ptr: *mut u8, _size: usize) {
+        extern "system" { fn VirtualFree(addr: *mut u8, size: usize, free_type: u32) -> i32; }
+        VirtualFree(ptr, 0, 0x8000);
+    }
+
     #[cfg(not(target_arch = "aarch64"))]
     pub unsafe fn alloc_exec(_: usize) -> *mut u8 { std::ptr::null_mut() }
     #[cfg(not(target_arch = "aarch64"))]

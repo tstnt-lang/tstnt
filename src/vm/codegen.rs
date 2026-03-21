@@ -713,6 +713,50 @@ impl Codegen {
             Node::Ref(inner) => self.compile_node(inner)?,
             Node::NamedArg { value, .. } => self.compile_node(value)?,
 
+            Node::ForIn { var, iter, body } => {
+                self.compile_node(iter)?;
+                let iter_key = self.get_or_def_global(&format!("__for_{}", var));
+                self.chunk.write_op(Op::StoreGlobal, self.line);
+                self.chunk.write_u16(iter_key, self.line);
+                let idx_key = self.get_or_def_global(&format!("__fori_{}", var));
+                self.chunk.write_op(Op::PushIntInline, self.line);
+                self.chunk.write_u16(32768, self.line);
+                self.chunk.write_op(Op::StoreGlobal, self.line);
+                self.chunk.write_u16(idx_key, self.line);
+                let loop_start = self.chunk.len();
+                self.loop_starts.push(loop_start);
+                self.break_patches.push(vec![]);
+                self.continue_patches.push(vec![]);
+                self.chunk.write_op(Op::LoadGlobal, self.line); self.chunk.write_u16(idx_key, self.line);
+                self.chunk.write_op(Op::LoadGlobal, self.line); self.chunk.write_u16(iter_key, self.line);
+                self.chunk.write_op(Op::ArrayLen, self.line);
+                self.chunk.write_op(Op::Lt, self.line);
+                self.chunk.write_op(Op::JumpIfNot, self.line);
+                let exit = self.chunk.len(); self.chunk.write_u16(0, self.line);
+                self.chunk.write_op(Op::LoadGlobal, self.line); self.chunk.write_u16(iter_key, self.line);
+                self.chunk.write_op(Op::LoadGlobal, self.line); self.chunk.write_u16(idx_key, self.line);
+                self.chunk.write_op(Op::ArrayGet, self.line);
+                self.scopes.push(Scope::new());
+                let var_slot = self.def_local(var);
+                self.chunk.write_op(Op::StoreLocal, self.line); self.chunk.write_u16(var_slot, self.line);
+                for s2 in body { self.compile_node(s2)?; }
+                self.scopes.pop();
+                let cont = self.chunk.len() as u16;
+                self.chunk.write_op(Op::LoadGlobal, self.line); self.chunk.write_u16(idx_key, self.line);
+                self.chunk.write_op(Op::PushIntInline, self.line); self.chunk.write_u16(1 + 32768, self.line);
+                self.chunk.write_op(Op::Add, self.line);
+                self.chunk.write_op(Op::StoreGlobal, self.line); self.chunk.write_u16(idx_key, self.line);
+                self.chunk.write_op(Op::Jump, self.line); self.chunk.write_u16(loop_start as u16, self.line);
+                let after = self.chunk.len() as u16;
+                self.chunk.patch_u16(exit, after);
+                self.loop_starts.pop();
+                for p in self.break_patches.pop().unwrap_or_default() { self.chunk.patch_u16(p, after); }
+                for p in self.continue_patches.pop().unwrap_or_default() { self.chunk.patch_u16(p, cont); }
+            }
+            Node::Const { name, value, .. } => {
+                self.compile_node(value)?;
+                self.emit_store(name);
+            }
             Node::FuncDef { .. } | Node::StructDef { .. } | Node::ImplBlock { .. } |
             Node::Use(_) | Node::Mod(_) | Node::EnumDef { .. } | Node::TestDef { .. } |
             Node::InterfaceDef { .. } | Node::UnitDef { .. } | Node::Decorator { .. } |
