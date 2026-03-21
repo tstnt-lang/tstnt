@@ -20,6 +20,18 @@ jobs:
             target: aarch64-unknown-linux-gnu
             artifact: tstnt-linux-aarch64
 
+          - os: ubuntu-latest
+            target: armv7-unknown-linux-gnueabihf
+            artifact: tstnt-linux-armv7
+
+          - os: ubuntu-latest
+            target: arm-unknown-linux-gnueabihf
+            artifact: tstnt-linux-armv6
+
+          - os: ubuntu-latest
+            target: i686-unknown-linux-gnu
+            artifact: tstnt-linux-x86
+
           - os: macos-latest
             target: x86_64-apple-darwin
             artifact: tstnt-macos-x86_64
@@ -32,6 +44,10 @@ jobs:
             target: x86_64-pc-windows-msvc
             artifact: tstnt-windows-x86_64.exe
 
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+            artifact: tstnt-windows-aarch64.exe
+
     steps:
       - uses: actions/checkout@v4.2.2
 
@@ -40,16 +56,23 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - name: Install cross-compile tools (Linux aarch64)
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
+      - name: Install cross-compile tools
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu \
+            gcc-arm-linux-gnueabihf \
+            gcc-i686-linux-gnu \
+            gcc-multilib
 
       - name: Build
         run: cargo build --release --target ${{ matrix.target }}
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
+          CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
+          CARGO_TARGET_I686_UNKNOWN_LINUX_GNU_LINKER: i686-linux-gnu-gcc
 
       - name: Rename binary (Unix)
         if: matrix.os != 'windows-latest'
@@ -65,9 +88,62 @@ jobs:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.artifact }}
 
+  build-android:
+    name: Build Android ${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: aarch64-linux-android
+            artifact: tstnt-android-aarch64
+            clang: aarch64-linux-android21-clang
+
+          - target: armv7-linux-androideabi
+            artifact: tstnt-android-armv7
+            clang: armv7a-linux-androideabi21-clang
+
+          - target: i686-linux-android
+            artifact: tstnt-android-x86
+            clang: i686-linux-android21-clang
+
+          - target: x86_64-linux-android
+            artifact: tstnt-android-x86_64
+            clang: x86_64-linux-android21-clang
+
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install Android NDK
+        uses: nttld/setup-ndk@v1.5.0
+        id: setup-ndk
+        with:
+          ndk-version: r26d
+
+      - name: Build for Android
+        run: cargo build --release --target ${{ matrix.target }}
+        env:
+          CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang
+          CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_LINKER: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang
+          CARGO_TARGET_I686_LINUX_ANDROID_LINKER: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/i686-linux-android21-clang
+          CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android21-clang
+
+      - name: Rename binary
+        run: cp target/${{ matrix.target }}/release/tstnt ${{ matrix.artifact }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+
   release:
     name: Create Release
-    needs: build
+    needs: [build, build-android]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4.2.2
@@ -77,11 +153,6 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
-
-      - name: Build Android binary info
-        run: |
-          echo "Android binary must be cross-compiled separately"
-          echo "See README for Android/Termux build instructions"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2.3.2
@@ -94,13 +165,21 @@ jobs:
 
             **Android / Linux / macOS**
             ```bash
-            curl -fsSL https://tstnt-lang.github.io/install.sh | sh
+            curl -fsSL https://tstnt.lol/install.sh | sh
             ```
 
             **Windows (PowerShell)**
             ```powershell
-            irm https://tstnt-lang.github.io/install.ps1 | iex
+            irm https://tstnt.lol/install.ps1 | iex
             ```
+
+            ### Platforms
+            | Platform | Architectures |
+            |----------|---------------|
+            | Android  | aarch64, armv7, x86, x86_64 |
+            | Linux    | x86_64, aarch64, armv7, armv6, x86 |
+            | macOS    | x86_64, aarch64 (Apple Silicon) |
+            | Windows  | x86_64, aarch64 |
 
             ### Build from source
             ```bash
@@ -112,34 +191,3 @@ jobs:
             See [commits](https://github.com/tstnt-lang/tstnt/commits/${{ github.ref_name }})
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  build-android:
-    name: Build Android (aarch64)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4.2.2
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android
-
-      - name: Install Android NDK
-        uses: nttld/setup-ndk@v1.5.0
-        id: setup-ndk
-        with:
-          ndk-version: r26d
-
-      - name: Build for Android
-        run: cargo build --release --target aarch64-linux-android
-        env:
-          CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang
-
-      - name: Rename binary
-        run: cp target/aarch64-linux-android/release/tstnt tstnt-android-aarch64
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4.6.2
-        with:
-          name: tstnt-android-aarch64
-          path: tstnt-android-aarch64
